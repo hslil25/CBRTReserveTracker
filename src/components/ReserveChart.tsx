@@ -28,6 +28,32 @@ interface Props {
   monthly: ReserveDataPoint[];
 }
 
+const VIEW_TOOLTIPS: Record<PeriodView, string> = {
+  daily:
+    "Estimated daily figure built from the CBRT balance-sheet proxy (TP.AB.A02 − TP.AB.A10) ÷ mid USD/TRY, anchored to weekly N05 publishes.",
+  weekly:
+    "Official weekly publication of net reserves (TP.AB.N05). Released every Friday.",
+  monthly:
+    "Last weekly observation within each calendar month — i.e. end-of-month snapshot.",
+};
+
+const VIEW_DESCRIPTIONS: Record<PeriodView, string> = {
+  daily:
+    "Daily estimate — derived from the daily balance-sheet proxy, anchored to the official weekly publishes.",
+  weekly:
+    "Official weekly figure published by CBRT (TP.AB.N05). One observation per Friday.",
+  monthly:
+    "End-of-month snapshot — last weekly observation of each calendar month.",
+};
+
+const METRIC_TOOLTIPS: Record<keyof typeof METRIC_LABELS, string> = {
+  net_excl_swap:
+    "Net reserves excluding the CBRT swap stock. Removes borrowed FX from the net figure.",
+  net_incl_swap:
+    "Net reserves as published (includes swap stock). This is the raw TP.AB.N05 series.",
+  gross: "Gross FX reserves — total FX assets without subtracting liabilities.",
+};
+
 function formatDateLabel(dateStr: string, view: PeriodView): string {
   if (view === "monthly") {
     const [year, month] = dateStr.split("-");
@@ -103,39 +129,49 @@ export default function ReserveChart({ daily, weekly, monthly }: Props) {
           <p className="text-xs text-slate-500 mt-0.5">{METRIC_LABELS[activeMetric]}</p>
         </div>
 
-        <div className="flex flex-col gap-2 items-end">
-          <div className="flex bg-[#0a0d12] border border-[#1e2d3d] rounded-lg p-1 gap-1">
-            {METRICS.map((m) => (
-              <button
-                key={m}
-                onClick={() => setActiveMetric(m)}
-                className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                  activeMetric === m ? "text-[#0d1520] shadow" : "text-slate-500 hover:text-slate-300"
-                }`}
-                style={activeMetric === m ? { backgroundColor: METRIC_COLORS[m] } : {}}
-              >
-                {METRIC_LABELS[m]}
-              </button>
-            ))}
+        <div className="flex flex-col gap-3 items-end">
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-[10px] uppercase tracking-widest text-slate-600">Metric</span>
+            <div className="flex bg-[#0a0d12] border border-[#1e2d3d] rounded-lg p-1 gap-1">
+              {METRICS.map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setActiveMetric(m)}
+                  title={METRIC_TOOLTIPS[m]}
+                  className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                    activeMetric === m ? "text-[#0d1520] shadow" : "text-slate-500 hover:text-slate-300"
+                  }`}
+                  style={activeMetric === m ? { backgroundColor: METRIC_COLORS[m] } : {}}
+                >
+                  {METRIC_LABELS[m]}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="flex bg-[#0a0d12] border border-[#1e2d3d] rounded-lg p-1 gap-1">
-            {(["daily", "weekly", "monthly"] as PeriodView[]).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`px-3 py-1.5 rounded text-xs font-medium transition-all capitalize ${
-                  view === v
-                    ? "bg-slate-600 text-slate-100 shadow"
-                    : "text-slate-500 hover:text-slate-300"
-                }`}
-              >
-                {v}
-              </button>
-            ))}
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-[10px] uppercase tracking-widest text-slate-600">Frequency</span>
+            <div className="flex bg-[#0a0d12] border border-[#1e2d3d] rounded-lg p-1 gap-1">
+              {(["daily", "weekly", "monthly"] as PeriodView[]).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  title={VIEW_TOOLTIPS[v]}
+                  className={`px-3 py-1.5 rounded text-xs font-medium transition-all capitalize ${
+                    view === v
+                      ? "bg-slate-600 text-slate-100 shadow"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
+
+      <p className="text-xs text-slate-500 mb-4">{VIEW_DESCRIPTIONS[view]}</p>
 
       <ResponsiveContainer width="100%" height={340}>
         <AreaChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
