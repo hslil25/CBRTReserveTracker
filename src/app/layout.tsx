@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CBRT FX Reserves",
-  description: "Daily tracker of the Central Bank of Türkiye net FX position, swap-adjusted net reserves and gross reserves, sourced from EVDS.",
+  title: "TCMB Rezerv Takip",
+  description: "TCMB net döviz pozisyonu, swap hariç net rezerv ve brüt rezervlerin EVDS verisiyle günlük takibi.",
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="tr"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>

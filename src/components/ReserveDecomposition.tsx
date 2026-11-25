@@ -22,6 +22,15 @@ import Segmented from "@/components/Segmented";
 type Basis = "net" | "gross";
 type Preset = "4W" | "3M" | "6M" | "YTD" | "1Y" | "custom";
 
+const PRESET_LABELS: Record<Preset, string> = {
+  "4W": "4H",
+  "3M": "3A",
+  "6M": "6A",
+  YTD: "Yılbaşı",
+  "1Y": "1Y",
+  custom: "Özel",
+};
+
 const PRESET_MONTHS: Record<Exclude<Preset, "custom">, number> = {
   "4W": 1,
   "3M": 3,
@@ -41,42 +50,42 @@ const COMPONENTS: Record<Basis, Component[]> = {
   net: [
     {
       key: "goldPriceNet",
-      label: "Gold price effect",
+      label: "Altın fiyat etkisi",
       color: "#eab308",
-      note: "Revaluation of the CBRT's net gold position (holdings minus gold owed to banks) as the USD gold price moves.",
+      note: "TCMB'nin net altın pozisyonunun (varlıklar eksi bankalara borçlu olunan altın) dolar bazlı altın fiyatındaki değişimle yeniden değerlenmesi.",
     },
     {
       key: "netFlows",
-      label: "FX sales & other flows",
+      label: "Döviz satışı ve diğer akışlar",
       color: "#38bdf8",
-      note: "Everything else: CBRT FX sales or purchases, Treasury FX buying, exporter rediscount repayments and non-USD currency valuation.",
+      note: "Geri kalan her şey: TCMB döviz satış/alımları, Hazine'nin döviz alımları, ihracatçı reeskont geri ödemeleri ve dolar dışı para birimlerinin değer değişimi.",
     },
   ],
   gross: [
     {
       key: "goldPriceGross",
-      label: "Gold price effect",
+      label: "Altın fiyat etkisi",
       color: "#eab308",
-      note: "Revaluation of all gold holdings as the USD gold price moves.",
+      note: "Tüm altın varlıklarının dolar bazlı altın fiyatındaki değişimle yeniden değerlenmesi.",
     },
     {
       key: "goldQty",
-      label: "Gold quantity change",
+      label: "Altın miktarı değişimi",
       color: "#f97316",
-      note: "Gold bought, sold, swapped or deposited by banks, valued at the period's price.",
+      note: "Alınan, satılan, swaplanan ya da bankalarca yatırılan altın; dönem fiyatıyla değerlenmiş.",
     },
     {
       key: "fx",
-      label: "FX reserves change",
+      label: "Döviz rezervi değişimi",
       color: "#38bdf8",
-      note: "Change in foreign-currency reserves excluding gold: sales, swaps, bank and Treasury deposits, borrowing.",
+      note: "Altın hariç döviz rezervlerindeki değişim: satışlar, swaplar, banka ve Hazine mevduatları, borçlanma.",
     },
   ],
 };
 
 const LEVEL_LABEL: Record<Basis, string> = {
-  net: "Net reserves ex-swaps",
-  gross: "Gross reserves",
+  net: "Swap hariç net rezerv",
+  gross: "Brüt rezerv",
 };
 
 function level(p: GoldWeeklyPoint, basis: Basis): number {
@@ -112,7 +121,7 @@ function WaterfallTip({ active, payload }: TipProps) {
     <div className="bg-[#0f1621] border border-[#243246] rounded-lg px-3 py-2 text-xs shadow-xl">
       <p className="text-slate-400 mb-1">{p.name}</p>
       <p className="text-slate-100 font-semibold">
-        {p.isLevel ? fmtBn(p.delta) : fmtBn(p.delta, true)} bn $
+        {p.isLevel ? fmtBn(p.delta) : fmtBn(p.delta, true)} mlr $
       </p>
     </div>
   );
@@ -122,7 +131,7 @@ function WeeklyTip({ active, payload, label }: TipProps) {
   if (!active || !payload?.length || !label) return null;
   return (
     <div className="bg-[#0f1621] border border-[#243246] rounded-lg px-3 py-2 text-xs shadow-xl min-w-[180px]">
-      <p className="text-slate-400 mb-1.5">Week to {fmtDay(label)}</p>
+      <p className="text-slate-400 mb-1.5">{fmtDay(label)} ile biten hafta</p>
       {payload.map((e) => (
         <p key={e.name} className="flex justify-between gap-4">
           <span style={{ color: e.color }}>{e.name}</span>
@@ -189,7 +198,7 @@ export default function ReserveDecomposition({ gold }: { gold: GoldWeeklyPoint[]
   );
 
   const biggest = [...totals].sort((a, b) => Math.abs(b.value) - Math.abs(a.value))[0];
-  const verb = totalChange < 0 ? "fell" : "rose";
+  const verb = totalChange < 0 ? "düştü" : "yükseldi";
   const absTotalShare = totals.reduce((s, t) => s + Math.abs(t.value), 0) || 1;
 
   const dateOptions = gold.slice(-260).map((p) => p.date);
@@ -199,18 +208,18 @@ export default function ReserveDecomposition({ gold }: { gold: GoldWeeklyPoint[]
       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-6">
         <div>
           <h2 className="text-slate-100 text-base font-semibold tracking-tight">
-            What moved reserves?
+            Rezervleri ne hareket ettirdi?
           </h2>
           <p className="text-xs text-slate-500 mt-0.5 max-w-xl">
-            Splits the change in reserves into gold price revaluation and everything else. Weekly
-            data, USD billion.
+            Rezervlerdeki değişimi altın fiyatı etkisi ve diğer kalemlere ayırır. Haftalık veri,
+            milyar $.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 lg:justify-end">
           <Segmented
             options={[
-              { value: "net", label: "Net ex-swaps" },
-              { value: "gross", label: "Gross" },
+              { value: "net", label: "Swap hariç net" },
+              { value: "gross", label: "Brüt" },
             ]}
             value={basis}
             onChange={setBasis}
@@ -218,7 +227,7 @@ export default function ReserveDecomposition({ gold }: { gold: GoldWeeklyPoint[]
           <Segmented
             options={(["4W", "3M", "6M", "YTD", "1Y", "custom"] as Preset[]).map((p) => ({
               value: p,
-              label: p === "custom" ? "Custom" : p,
+              label: PRESET_LABELS[p],
             }))}
             value={preset}
             onChange={setPreset}
@@ -228,7 +237,7 @@ export default function ReserveDecomposition({ gold }: { gold: GoldWeeklyPoint[]
 
       {preset === "custom" && (
         <div className="flex flex-wrap items-center gap-2 mb-5 text-xs text-slate-400">
-          <span>From</span>
+          <span>Başlangıç</span>
           <select
             value={customStart}
             onChange={(e) => setCustomStart(e.target.value)}
@@ -240,7 +249,7 @@ export default function ReserveDecomposition({ gold }: { gold: GoldWeeklyPoint[]
               </option>
             ))}
           </select>
-          <span>to</span>
+          <span>Bitiş</span>
           <select
             value={customEnd}
             onChange={(e) => setCustomEnd(e.target.value)}
@@ -256,19 +265,18 @@ export default function ReserveDecomposition({ gold }: { gold: GoldWeeklyPoint[]
       )}
 
       <div className="bg-[#0a0f16] border border-[#1a2433] rounded-xl px-4 py-3 mb-6 text-sm text-slate-300">
-        {LEVEL_LABEL[basis]} {verb} by{" "}
-        <span className="font-semibold text-slate-50">{fmtBn(Math.abs(totalChange))} bn $</span>{" "}
-        between {fmtDay(start.date)} and {fmtDay(end.date)} ({fmtBn(level(start, basis))} →{" "}
-        {fmtBn(level(end, basis))}). The largest driver was{" "}
+        {fmtDay(start.date)} ile {fmtDay(end.date)} arasında {LEVEL_LABEL[basis].toLocaleLowerCase("tr-TR")}{" "}
+        <span className="font-semibold text-slate-50">{fmtBn(Math.abs(totalChange))} mlr $</span>{" "}
+        {verb} ({fmtBn(level(start, basis))} → {fmtBn(level(end, basis))}). En büyük etken{" "}
         <span style={{ color: biggest.color }} className="font-medium">
-          {biggest.label.toLowerCase()}
+          {biggest.label.toLocaleLowerCase("tr-TR")}
         </span>{" "}
-        at {fmtBn(biggest.value, true)} bn $.
+        oldu: {fmtBn(biggest.value, true)} mlr $.
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3">
-          <p className="text-xs font-medium text-slate-400 mb-2">Bridge</p>
+          <p className="text-xs font-medium text-slate-400 mb-2">Köprü</p>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={waterfall} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke="#1a2433" vertical={false} />
@@ -292,7 +300,7 @@ export default function ReserveDecomposition({ gold }: { gold: GoldWeeklyPoint[]
         </div>
 
         <div className="lg:col-span-2 flex flex-col gap-3">
-          <p className="text-xs font-medium text-slate-400">Contribution</p>
+          <p className="text-xs font-medium text-slate-400">Katkı</p>
           {totals.map((t) => (
             <div key={t.key} className="bg-[#0a0f16] border border-[#1a2433] rounded-xl px-4 py-3">
               <div className="flex items-center justify-between">
@@ -319,20 +327,20 @@ export default function ReserveDecomposition({ gold }: { gold: GoldWeeklyPoint[]
             </div>
           ))}
           <div className="flex items-center justify-between px-1 text-sm">
-            <span className="text-slate-400">Total change</span>
+            <span className="text-slate-400">Toplam değişim</span>
             <span className="font-semibold text-slate-50">{fmtBn(totalChange, true)}</span>
           </div>
         </div>
       </div>
 
-      <p className="text-xs font-medium text-slate-400 mt-8 mb-2">Week by week</p>
+      <p className="text-xs font-medium text-slate-400 mt-8 mb-2">Hafta hafta</p>
       <ResponsiveContainer width="100%" height={240}>
         <ComposedChart data={weeklyRows} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} stackOffset="sign">
           <CartesianGrid stroke="#1a2433" vertical={false} />
           <XAxis
             dataKey="date"
             tickFormatter={(d) =>
-              new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+              new Date(d).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })
             }
             tick={{ fill: "#64748b", fontSize: 10 }}
             axisLine={false}
@@ -348,7 +356,7 @@ export default function ReserveDecomposition({ gold }: { gold: GoldWeeklyPoint[]
           ))}
           <Line
             dataKey="Total"
-            name="Total change"
+            name="Toplam değişim"
             stroke="#e2e8f0"
             strokeWidth={1.5}
             dot={{ r: 2, fill: "#e2e8f0" }}
@@ -358,10 +366,10 @@ export default function ReserveDecomposition({ gold }: { gold: GoldWeeklyPoint[]
       </ResponsiveContainer>
 
       <p className="text-[11px] text-slate-500 mt-4 pt-4 border-t border-[#1a2433]">
-        Method: gold holdings in ounces are implied from weekly gold reserves (TP.AB.C1) ÷ BIST gold
-        price (USD/oz). Price effect = previous week&apos;s ounces × weekly price change. For net
-        reserves, gold owed to banks (weekly CBRT statement) is netted out first. Weekly figures
-        carry ±1–2% noise from valuation timing; it cancels over longer periods.
+        Yöntem: Altın miktarı (ons) haftalık altın rezervinin (TP.AB.C1) BIST altın fiyatına (USD/ons)
+        bölünmesiyle bulunur. Fiyat etkisi = önceki haftanın ons miktarı × haftalık fiyat değişimi. Net
+        rezervde önce bankalara borçlu olunan altın (TCMB haftalık vaziyet) düşülür. Haftalık rakamlar
+        değerleme zamanlamasından kaynaklı ±%1–2 gürültü taşır; uzun dönemlerde bu gürültü birbirini götürür.
       </p>
     </section>
   );

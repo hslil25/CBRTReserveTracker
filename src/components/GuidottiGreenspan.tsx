@@ -1,5 +1,7 @@
 'use client';
 
+import { fmtNum } from "@/lib/reserves";
+
 import {
   AreaChart,
   Area,
@@ -26,7 +28,7 @@ interface GGPoint {
 }
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
+  return new Date(iso).toLocaleDateString("tr-TR", {
     month: "short",
     day: "numeric",
     year: "2-digit",
@@ -47,11 +49,11 @@ function CustomTooltip({ active, payload, label }: TooltipProps) {
     <div className="bg-[#0f1621] border border-[#243246] rounded-lg px-3 py-2 text-xs shadow-xl min-w-[160px]">
       <p className="text-slate-400 mb-1.5">{fmtDate(label)}</p>
       <p className={pass ? "text-emerald-400" : "text-red-400"}>
-        Ratio: <span className="font-bold">{pt.ratio.toFixed(1)}%</span>{" "}
-        <span className="text-[10px] uppercase tracking-wider">{pass ? "pass" : "fail"}</span>
+        Oran: <span className="font-bold">%{fmtNum(pt.ratio, 1)}</span>{" "}
+        <span className="text-[10px] uppercase tracking-wider">{pass ? "geçti" : "kaldı"}</span>
       </p>
-      <p className="text-slate-500 mt-1">Gross: {pt.gross.toFixed(1)}B</p>
-      <p className="text-slate-500">ST debt: {pt.debt.toFixed(1)}B</p>
+      <p className="text-slate-500 mt-1">Brüt rezerv: {fmtNum(pt.gross, 1)} mlr $</p>
+      <p className="text-slate-500">KV dış borç: {fmtNum(pt.debt, 1)} mlr $</p>
     </div>
   );
 }
@@ -97,26 +99,26 @@ export default function GuidottiGreenspan({ weekly }: Props) {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
         <div>
           <h2 className="text-slate-100 text-base font-semibold tracking-tight mb-1">
-            Guidotti–Greenspan Rule
+            Guidotti–Greenspan Kuralı
           </h2>
           <p className="text-xs text-slate-500 max-w-xl">
-            Gross FX reserves / short-term external debt (1y).
+            Brüt döviz rezervi / kalan vadesi 1 yıla kadar dış borç. %100 altı, rezervlerin bir yıllık dış borç ödemelerini karşılamadığını gösterir.
           </p>
         </div>
         <div className="text-right">
           <div className="flex items-baseline gap-2 justify-end">
             <span className="text-3xl font-bold" style={{ color: ratioColor }}>
-              {latest.ratio.toFixed(1)}%
+              %{fmtNum(latest.ratio, 1)}
             </span>
             <span
               className="text-xs px-2 py-0.5 rounded-full font-medium uppercase tracking-wider"
               style={{ color: ratioColor, backgroundColor: `${ratioColor}1a` }}
             >
-              {latestPass ? "Pass" : "Fail"}
+              {latestPass ? "Geçti" : "Kaldı"}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            {latest.gross.toFixed(1)}B / {latest.debt.toFixed(1)}B · {fmtDate(latest.date)}
+            {fmtNum(latest.gross, 1)} / {fmtNum(latest.debt, 1)} mlr $ · {fmtDate(latest.date)}
           </p>
         </div>
       </div>
@@ -144,7 +146,7 @@ export default function GuidottiGreenspan({ weekly }: Props) {
             tick={{ fill: "#64748b", fontSize: 10 }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(v) => `${v}%`}
+            tickFormatter={(v) => `%${v}`}
             width={48}
           />
 
@@ -154,7 +156,7 @@ export default function GuidottiGreenspan({ weekly }: Props) {
               stroke="#facc15"
               strokeDasharray="4 4"
               label={{
-                value: "100% threshold",
+                value: "%100 eşiği",
                 position: "insideTopRight",
                 fill: "#facc15",
                 fontSize: 10,
@@ -187,25 +189,25 @@ export default function GuidottiGreenspan({ weekly }: Props) {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-4 border-t border-[#1a2433]">
         <div className="bg-[#0a0f16] border border-[#1a2433] rounded-lg px-3 py-2">
-          <p className="text-slate-500 text-xs font-medium mb-0.5">Pass rate</p>
+          <p className="text-slate-500 text-xs font-medium mb-0.5">Geçilen hafta oranı</p>
           <p className="text-emerald-400 font-bold text-sm">
-            {passPct.toFixed(0)}% <span className="text-slate-500 font-normal">of weeks</span>
+            %{fmtNum(passPct, 0)}
           </p>
         </div>
         <div className="bg-[#0a0f16] border border-[#1a2433] rounded-lg px-3 py-2">
-          <p className="text-slate-500 text-xs font-medium mb-0.5">Low</p>
-          <p className="text-red-400 font-bold text-sm">{minPt.ratio.toFixed(1)}%</p>
+          <p className="text-slate-500 text-xs font-medium mb-0.5">En düşük</p>
+          <p className="text-red-400 font-bold text-sm">%{fmtNum(minPt.ratio, 1)}</p>
           <p className="text-slate-600 text-xs">{fmtDate(minPt.date)}</p>
         </div>
         <div className="bg-[#0a0f16] border border-[#1a2433] rounded-lg px-3 py-2">
-          <p className="text-slate-500 text-xs font-medium mb-0.5">High</p>
-          <p className="text-emerald-400 font-bold text-sm">{maxPt.ratio.toFixed(1)}%</p>
+          <p className="text-slate-500 text-xs font-medium mb-0.5">En yüksek</p>
+          <p className="text-emerald-400 font-bold text-sm">%{fmtNum(maxPt.ratio, 1)}</p>
           <p className="text-slate-600 text-xs">{fmtDate(maxPt.date)}</p>
         </div>
         <div className="bg-[#0a0f16] border border-[#1a2433] rounded-lg px-3 py-2">
-          <p className="text-slate-500 text-xs font-medium mb-0.5">Latest</p>
+          <p className="text-slate-500 text-xs font-medium mb-0.5">Son</p>
           <p className="font-bold text-sm" style={{ color: ratioColor }}>
-            {latest.ratio.toFixed(1)}%
+            %{fmtNum(latest.ratio, 1)}
           </p>
           <p className="text-slate-600 text-xs">{fmtDate(latest.date)}</p>
         </div>

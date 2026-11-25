@@ -20,7 +20,7 @@ import {
   METRIC_LABELS,
   METRIC_COLORS,
 } from "@/lib/types";
-import { buildChartData } from "@/lib/reserves";
+import { buildChartData, fmtNum } from "@/lib/reserves";
 import Segmented from "@/components/Segmented";
 
 interface Props {
@@ -31,33 +31,35 @@ interface Props {
 
 const VIEW_TOOLTIPS: Record<PeriodView, string> = {
   daily:
-    "Daily net FX position from the CBRT analytical balance sheet: (TP.AB.A02 − TP.AB.A10) ÷ mid USD/TRY.",
+    "TCMB analitik bilançosundan günlük net döviz pozisyonu: (TP.AB.A02 − TP.AB.A10) ÷ USD/TRY orta kur.",
   weekly:
-    "Net FX position (A02 − A10) on each Friday gross-reserve publish date.",
+    "Brüt rezervin yayımlandığı her cuma günündeki net döviz pozisyonu (A02 − A10).",
   monthly:
-    "Last weekly observation within each calendar month — i.e. end-of-month snapshot.",
+    "Her takvim ayının son haftalık gözlemi, yani ay sonu görüntüsü.",
 };
 
 const VIEW_DESCRIPTIONS: Record<PeriodView, string> = {
   daily:
-    "Daily — net FX position from the CBRT analytical balance sheet (A02 − A10).",
+    "Günlük — TCMB analitik bilançosundan net döviz pozisyonu (A02 − A10).",
   weekly:
-    "Weekly — net FX position (A02 − A10) on each Friday. One observation per week.",
+    "Haftalık — her cuma günündeki net döviz pozisyonu (A02 − A10). Haftada bir gözlem.",
   monthly:
-    "End-of-month snapshot — last weekly observation of each calendar month.",
+    "Ay sonu — her takvim ayının son haftalık gözlemi.",
 };
 
 const METRIC_TOOLTIPS: Record<keyof typeof METRIC_LABELS, string> = {
   net_excl_swap:
-    "Net FX position minus the CBRT swap stock, excluding Treasury FX. Removes borrowed FX from the net figure.",
+    "Net döviz pozisyonundan TCMB swap stoku düşülmüş hali; Hazine dövizi hariç. Borçlanılan dövizi net rakamdan çıkarır.",
   net_incl_swap:
-    "Net FX position: external assets (TP.AB.A02) − total FX liabilities (TP.AB.A10), swaps included. Treasury FX deposits are counted as liabilities.",
-  gross: "Gross FX reserves — total FX assets without subtracting liabilities.",
+    "Net döviz pozisyonu: dış varlıklar (TP.AB.A02) − toplam döviz yükümlülükleri (TP.AB.A10), swaplar dahil. Hazine döviz mevduatı yükümlülük olarak sayılır.",
+  gross: "Brüt döviz rezervi — yükümlülükler düşülmeden toplam rezerv varlıkları.",
 };
 
 type Range = "3M" | "6M" | "1Y" | "3Y";
 const RANGES: Range[] = ["3M", "6M", "1Y", "3Y"];
 const RANGE_MONTHS: Record<Range, number> = { "3M": 3, "6M": 6, "1Y": 12, "3Y": 36 };
+const RANGE_LABELS: Record<Range, string> = { "3M": "3A", "6M": "6A", "1Y": "1Y", "3Y": "3Y" };
+const VIEW_LABELS: Record<PeriodView, string> = { daily: "Günlük", weekly: "Haftalık", monthly: "Aylık" };
 
 function sliceRange(series: ReserveDataPoint[], range: Range): ReserveDataPoint[] {
   if (!series.length) return series;
@@ -71,13 +73,13 @@ function sliceRange(series: ReserveDataPoint[], range: Range): ReserveDataPoint[
 function formatDateLabel(dateStr: string, view: PeriodView): string {
   if (view === "monthly") {
     const [year, month] = dateStr.split("-");
-    return new Date(Number(year), Number(month) - 1).toLocaleDateString("en-US", {
+    return new Date(Number(year), Number(month) - 1).toLocaleDateString("tr-TR", {
       month: "short",
       year: "2-digit",
     });
   }
   const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", {
+  return d.toLocaleDateString("tr-TR", {
     month: "short",
     day: "numeric",
     year: view === "daily" ? "numeric" : "2-digit",
@@ -100,7 +102,7 @@ function CustomTooltip({ active, payload, label, view, color }: TooltipProps) {
       <p className="text-slate-400 mb-1.5">{formatDateLabel(label, view)}</p>
       <p style={{ color }}>
         <span className="font-bold">
-          {pt.value.toFixed(1)} bn $
+          {fmtNum(pt.value, 1)} mlr $
         </span>
       </p>
     </div>
@@ -120,7 +122,7 @@ export default function ReserveChart({ daily, weekly, monthly }: Props) {
   const latestValue = actuals[actuals.length - 1][activeMetric];
   const prevValue = actuals[actuals.length - 2]?.[activeMetric] ?? latestValue;
   const change = latestValue - prevValue;
-  const changeLabel = view === "daily" ? "DoD" : view === "weekly" ? "WoW" : "MoM";
+  const changeLabel = view === "daily" ? "günlük" : view === "weekly" ? "haftalık" : "aylık";
   const latestDate = actuals[actuals.length - 1].date;
   const rangeChange = latestValue - actuals[0][activeMetric];
 
@@ -134,17 +136,17 @@ export default function ReserveChart({ daily, weekly, monthly }: Props) {
             {METRIC_LABELS[activeMetric]}
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            USD billion · as of {formatDateLabel(latestDate, view === "monthly" ? "monthly" : "daily")}
+            Milyar $ · {formatDateLabel(latestDate, view === "monthly" ? "monthly" : "daily")} itibarıyla
           </p>
           <div className="flex items-baseline gap-3 mt-3">
             <span className="text-4xl font-semibold tracking-tight" style={{ color }}>
-              {latestValue.toFixed(1)}
+              {fmtNum(latestValue, 1)}
             </span>
             <span className={`text-sm font-medium whitespace-nowrap ${change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-              {change >= 0 ? "+" : "−"}{Math.abs(change).toFixed(1)} {changeLabel}
+              {change >= 0 ? "+" : "−"}{fmtNum(Math.abs(change), 1)} {changeLabel}
             </span>
             <span className={`text-sm whitespace-nowrap ${rangeChange >= 0 ? "text-emerald-400/70" : "text-rose-400/70"}`}>
-              {rangeChange >= 0 ? "+" : "−"}{Math.abs(rangeChange).toFixed(1)} {range}
+              {rangeChange >= 0 ? "+" : "−"}{fmtNum(Math.abs(rangeChange), 1)} {RANGE_LABELS[range]}
             </span>
           </div>
         </div>
@@ -158,14 +160,14 @@ export default function ReserveChart({ daily, weekly, monthly }: Props) {
           <Segmented
             options={(["daily", "weekly", "monthly"] as PeriodView[]).map((v) => ({
               value: v,
-              label: v[0].toUpperCase() + v.slice(1),
+              label: VIEW_LABELS[v],
               title: VIEW_TOOLTIPS[v],
             }))}
             value={view}
             onChange={setView}
           />
           <Segmented
-            options={RANGES.map((r) => ({ value: r, label: r }))}
+            options={RANGES.map((r) => ({ value: r, label: RANGE_LABELS[r] }))}
             value={range}
             onChange={setRange}
           />
@@ -222,7 +224,7 @@ export default function ReserveChart({ daily, weekly, monthly }: Props) {
       </ResponsiveContainer>
 
       <p className="text-[11px] text-slate-500 mt-4 pt-4 border-t border-[#1a2433]">
-        {VIEW_DESCRIPTIONS[view]} Source: CBRT EVDS analytical balance sheet; swaps from daily CBRT swap stocks plus monthly central-bank swaps.
+        {VIEW_DESCRIPTIONS[view]} Kaynak: TCMB EVDS analitik bilanço; swaplar günlük TCMB swap stokları ve aylık merkez bankası swaplarından.
       </p>
     </section>
   );

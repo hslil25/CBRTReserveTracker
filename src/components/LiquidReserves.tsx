@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import { useMemo, useState } from "react";
 import { GoldWeeklyPoint, SwapPoint } from "@/lib/types";
-import { fmtBn, fmtDay, sliceByMonths } from "@/lib/reserves";
+import { fmtBn, fmtDay, sliceByMonths, fmtNum } from "@/lib/reserves";
 import Segmented from "@/components/Segmented";
 
 type View = "composition" | "net" | "swaps";
@@ -24,11 +24,11 @@ const RANGE_MONTHS: Record<Range, number> = { "6M": 6, "1Y": 12, "3Y": 36, All: 
 
 const VIEW_NOTES: Record<View, string> = {
   composition:
-    "Gross reserves split into gold and foreign-currency reserves. FX reserves excluding gold are the most liquid part of the stock.",
+    "Brüt rezervin altın ve döviz olarak dağılımı. Altın hariç döviz rezervi, stokun en likit kısmıdır.",
   net:
-    "Net reserves ex-swaps split into the CBRT's net gold position and everything else. A negative 'net FX ex-gold' means the CBRT owes more foreign currency than it holds, and gold covers the gap.",
+    "Swap hariç net rezervin, TCMB'nin net altın pozisyonu ve geri kalan kısım olarak ayrımı. 'Altın hariç net döviz'in negatif olması, TCMB'nin elindekinden fazla döviz borçlu olduğunu ve açığı altının kapattığını gösterir.",
   swaps:
-    "Daily swap stock. Claims: FX the CBRT will receive back (sold spot, bought forward). Liabilities: FX borrowed from domestic banks and from foreign central banks (the latter published monthly, carried forward). Net = claims − liabilities.",
+    "Günlük swap stoku. Alacaklar: TCMB'nin vadede geri alacağı döviz (spot satıp vadeli aldığı). Yükümlülükler: yurt içi bankalardan ve yabancı merkez bankalarından borçlanılan döviz (ikincisi aylık yayımlanır, son değer taşınır). Net = alacaklar − yükümlülükler.",
 };
 
 interface TipProps {
@@ -59,7 +59,7 @@ const axisProps = {
 } as const;
 
 function dateTick(d: string) {
-  return new Date(d).toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+  return new Date(d).toLocaleDateString("tr-TR", { month: "short", year: "2-digit" });
 }
 
 export default function LiquidReserves({
@@ -80,30 +80,30 @@ export default function LiquidReserves({
   const goldShare = (last.gold / last.gross) * 100;
 
   const kpis = [
-    { label: "Liquid FX reserves", value: `${fmtBn(last.fx)}`, unit: "bn $", note: "Gross FX excl. gold" },
+    { label: "Likit döviz rezervi", value: `${fmtBn(last.fx)}`, unit: "mlr $", note: "Altın hariç brüt döviz" },
     {
-      label: "Gold reserves",
+      label: "Altın rezervi",
       value: `${fmtBn(last.gold)}`,
-      unit: "bn $",
-      note: `${last.oz.toFixed(1)}M oz · ${goldShare.toFixed(0)}% of gross`,
+      unit: "mlr $",
+      note: `${fmtNum(last.oz, 1)} mn ons · brüt rezervdeki payı %${fmtNum(goldShare, 0)}`,
     },
     {
-      label: "Net gold position",
-      value: `${(last.oz - last.liabOz).toFixed(1)}`,
-      unit: "M oz",
-      note: `${fmtBn(last.netGoldValue)} bn $ after ${last.liabOz.toFixed(1)}M oz owed`,
+      label: "Net altın pozisyonu",
+      value: `${fmtNum((last.oz - last.liabOz), 1)}`,
+      unit: "mn ons",
+      note: `${fmtNum(last.liabOz, 1)} mn ons borç düşülünce ${fmtBn(last.netGoldValue)} mlr $`,
     },
     {
-      label: "Net FX ex-gold",
+      label: "Altın hariç net döviz",
       value: `${fmtBn(last.netLiquid)}`,
-      unit: "bn $",
-      note: "Net reserves ex-swaps − net gold",
+      unit: "mlr $",
+      note: "Swap hariç net rezerv − net altın",
     },
     {
-      label: "Net swap position",
+      label: "Net swap pozisyonu",
       value: `${fmtBn(lastSwap.net)}`,
-      unit: "bn $",
-      note: `As of ${fmtDay(lastSwap.date)}`,
+      unit: "mlr $",
+      note: `${fmtDay(lastSwap.date)} itibarıyla`,
     },
   ];
 
@@ -112,24 +112,24 @@ export default function LiquidReserves({
       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-6">
         <div>
           <h2 className="text-slate-100 text-base font-semibold tracking-tight">
-            Liquidity, gold &amp; swaps
+            Likidite, altın ve swaplar
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Weekly as of {fmtDay(last.date)} · USD billion
+            Haftalık, {fmtDay(last.date)} itibarıyla · milyar $
           </p>
         </div>
         <div className="flex flex-wrap gap-2 lg:justify-end">
           <Segmented
             options={[
-              { value: "composition", label: "Composition" },
-              { value: "net", label: "Net liquidity" },
-              { value: "swaps", label: "Swaps" },
+              { value: "composition", label: "Kompozisyon" },
+              { value: "net", label: "Net likidite" },
+              { value: "swaps", label: "Swaplar" },
             ]}
             value={view}
             onChange={setView}
           />
           <Segmented
-            options={(["6M", "1Y", "3Y", "All"] as Range[]).map((r) => ({ value: r, label: r }))}
+            options={(["6M", "1Y", "3Y", "All"] as Range[]).map((r) => ({ value: r, label: { "6M": "6A", "1Y": "1Y", "3Y": "3Y", All: "Tümü" }[r] }))}
             value={range}
             onChange={setRange}
           />
@@ -160,7 +160,7 @@ export default function LiquidReserves({
             <Area
               type="monotone"
               dataKey="fx"
-              name="FX reserves (liquid)"
+              name="Döviz rezervi (likit)"
               stackId="1"
               stroke="#38bdf8"
               fill="#38bdf8"
@@ -169,7 +169,7 @@ export default function LiquidReserves({
             <Area
               type="monotone"
               dataKey="gold"
-              name="Gold"
+              name="Altın"
               stackId="1"
               stroke="#eab308"
               fill="#eab308"
@@ -184,9 +184,9 @@ export default function LiquidReserves({
             <ReferenceLine y={0} stroke="#475569" />
             <Tooltip content={<Tip />} />
             <Legend verticalAlign="top" align="right" height={28} iconSize={8} wrapperStyle={{ fontSize: 11, color: "#94a3b8" }} />
-            <Line type="monotone" dataKey="netExclSwap" name="Net reserves ex-swaps" stroke="#f59e0b" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="netGoldValue" name="Net gold position" stroke="#eab308" strokeDasharray="4 3" dot={false} />
-            <Line type="monotone" dataKey="netLiquid" name="Net FX ex-gold" stroke="#38bdf8" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="netExclSwap" name="Swap hariç net rezerv" stroke="#f59e0b" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="netGoldValue" name="Net altın pozisyonu" stroke="#eab308" strokeDasharray="4 3" dot={false} />
+            <Line type="monotone" dataKey="netLiquid" name="Altın hariç net döviz" stroke="#38bdf8" strokeWidth={2} dot={false} />
           </ComposedChart>
         ) : (
           <ComposedChart
@@ -199,10 +199,10 @@ export default function LiquidReserves({
             <ReferenceLine y={0} stroke="#475569" />
             <Tooltip content={<Tip />} />
             <Legend verticalAlign="top" align="right" height={28} iconSize={8} wrapperStyle={{ fontSize: 11, color: "#94a3b8" }} />
-            <Area type="stepAfter" dataKey="sell" name="Claims (sell-side)" stroke="#34d399" fill="#34d399" fillOpacity={0.2} />
-            <Area type="stepAfter" dataKey="cbNeg" name="Central-bank swaps" stackId="neg" stroke="#a78bfa" fill="#a78bfa" fillOpacity={0.2} />
-            <Area type="stepAfter" dataKey="buyNeg" name="Domestic borrowing (buy-side)" stackId="neg" stroke="#fb7185" fill="#fb7185" fillOpacity={0.2} />
-            <Line type="stepAfter" dataKey="net" name="Net swap position" stroke="#e2e8f0" strokeWidth={1.5} dot={false} />
+            <Area type="stepAfter" dataKey="sell" name="Alacaklar (satım yönlü)" stroke="#34d399" fill="#34d399" fillOpacity={0.2} />
+            <Area type="stepAfter" dataKey="cbNeg" name="Merkez bankası swapları" stackId="neg" stroke="#a78bfa" fill="#a78bfa" fillOpacity={0.2} />
+            <Area type="stepAfter" dataKey="buyNeg" name="Yurt içi borçlanma (alım yönlü)" stackId="neg" stroke="#fb7185" fill="#fb7185" fillOpacity={0.2} />
+            <Line type="stepAfter" dataKey="net" name="Net swap pozisyonu" stroke="#e2e8f0" strokeWidth={1.5} dot={false} />
           </ComposedChart>
         )}
       </ResponsiveContainer>

@@ -29,13 +29,17 @@ export function getBiggestWeeklyChanges(
     .slice(0, topN);
 }
 
+export function fmtNum(v: number, digits = 1): string {
+  return v.toFixed(digits).replace(".", ",");
+}
+
 export function fmtBn(v: number, signed = false): string {
   const sign = v < 0 ? "−" : signed ? "+" : "";
-  return `${sign}${Math.abs(v).toFixed(1)}`;
+  return `${sign}${fmtNum(Math.abs(v))}`;
 }
 
 export function fmtDay(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
 }
 
 // Months back from the last observation; 0 = all, -1 = year to date.

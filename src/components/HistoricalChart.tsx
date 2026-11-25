@@ -21,7 +21,7 @@ import {
   METRIC_LABELS,
   METRIC_COLORS,
 } from "@/lib/types";
-import { buildChartData } from "@/lib/reserves";
+import { buildChartData, fmtNum } from "@/lib/reserves";
 
 interface Props {
   weekly: ReserveDataPoint[];
@@ -30,29 +30,29 @@ interface Props {
 
 const VIEW_TOOLTIPS: Record<"weekly" | "monthly", string> = {
   weekly:
-    "Net FX position (A02 − A10) on each Friday. One observation per week.",
+    "Her cuma günündeki net döviz pozisyonu (A02 − A10). Haftada bir gözlem.",
   monthly:
-    "End-of-month snapshot — last weekly observation in each calendar month.",
+    "Ay sonu — her takvim ayının son haftalık gözlemi.",
 };
 
 const METRIC_TOOLTIPS: Record<keyof typeof METRIC_LABELS, string> = {
   net_excl_swap:
-    "Net FX position minus the CBRT swap stock, excluding Treasury FX. Removes borrowed FX from the net figure.",
+    "Net döviz pozisyonundan TCMB swap stoku düşülmüş hali; Hazine dövizi hariç. Borçlanılan dövizi net rakamdan çıkarır.",
   net_incl_swap:
-    "Net FX position: external assets (TP.AB.A02) − total FX liabilities (TP.AB.A10), swaps included. Treasury FX deposits are counted as liabilities.",
-  gross: "Gross FX reserves — total FX assets without subtracting liabilities.",
+    "Net döviz pozisyonu: dış varlıklar (TP.AB.A02) − toplam döviz yükümlülükleri (TP.AB.A10), swaplar dahil. Hazine döviz mevduatı yükümlülük olarak sayılır.",
+  gross: "Brüt döviz rezervi — yükümlülükler düşülmeden toplam rezerv varlıkları.",
 };
 
 function formatDateLabel(dateStr: string, view: PeriodView): string {
   if (view === "monthly") {
     const [year, month] = dateStr.split("-");
-    return new Date(Number(year), Number(month) - 1).toLocaleDateString("en-US", {
+    return new Date(Number(year), Number(month) - 1).toLocaleDateString("tr-TR", {
       month: "short",
       year: "2-digit",
     });
   }
   const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
+  return d.toLocaleDateString("tr-TR", { month: "short", day: "numeric", year: "2-digit" });
 }
 
 interface TooltipProps {
@@ -72,7 +72,7 @@ function CustomTooltip({ active, payload, label, view, color }: TooltipProps) {
       <p style={{ color }}>
         <span className="font-bold">
           {pt.value >= 0 ? "+" : ""}
-          {pt.value.toFixed(1)}B
+          {fmtNum(pt.value, 1)} mlr $
         </span>
       </p>
     </div>
@@ -96,13 +96,13 @@ export default function HistoricalChart({ weekly, monthly }: Props) {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
         <div>
           <h2 className="text-slate-100 text-base font-semibold tracking-tight mb-1">
-            Historical Reserves
+            Rezerv Geçmişi
           </h2>
           <p className="text-xs text-slate-500">
             {earliest && latest && (
               <>
-                {formatDateLabel(earliest, view)} – {formatDateLabel(latest, view)} · drag the
-                handles below to focus on an interval
+                {formatDateLabel(earliest, view)} – {formatDateLabel(latest, view)} · bir aralığa odaklanmak için
+                alttaki tutamaçları sürükleyin
               </>
             )}
           </p>
@@ -110,7 +110,7 @@ export default function HistoricalChart({ weekly, monthly }: Props) {
 
         <div className="flex flex-col gap-3 items-end">
           <div className="flex flex-col items-end gap-1">
-            <span className="text-[11px] font-medium text-slate-500">Metric</span>
+            <span className="text-[11px] font-medium text-slate-500">Gösterge</span>
             <div className="flex bg-[#0a0f16] border border-[#1a2433] rounded-lg p-1 gap-1">
               {METRICS.map((m) => (
                 <button
@@ -128,7 +128,7 @@ export default function HistoricalChart({ weekly, monthly }: Props) {
           </div>
 
           <div className="flex flex-col items-end gap-1">
-            <span className="text-[11px] font-medium text-slate-500">Frequency</span>
+            <span className="text-[11px] font-medium text-slate-500">Frekans</span>
             <div className="flex bg-[#0a0f16] border border-[#1a2433] rounded-lg p-1 gap-1">
               {(["weekly", "monthly"] as Array<Exclude<PeriodView, "daily">>).map((v) => (
                 <button
@@ -141,7 +141,7 @@ export default function HistoricalChart({ weekly, monthly }: Props) {
                       : "text-slate-500 hover:text-slate-300"
                   }`}
                 >
-                  {v}
+                  {v === "weekly" ? "Haftalık" : "Aylık"}
                 </button>
               ))}
             </div>
@@ -172,7 +172,7 @@ export default function HistoricalChart({ weekly, monthly }: Props) {
             tick={{ fill: "#64748b", fontSize: 10 }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(v) => `${v}B`}
+            tickFormatter={(v) => `${v}`}
             width={52}
           />
           {hasNegative && (

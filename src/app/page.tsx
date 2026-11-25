@@ -4,6 +4,7 @@ import HistoricalChart from "@/components/HistoricalChart";
 import GuidottiGreenspan from "@/components/GuidottiGreenspan";
 import ReserveDecomposition from "@/components/ReserveDecomposition";
 import LiquidReserves from "@/components/LiquidReserves";
+import { fmtNum } from "@/lib/reserves";
 import { getReserveSeries } from "@/lib/evds";
 import { ReserveDataPoint } from "@/lib/types";
 
@@ -28,7 +29,7 @@ export default async function Home() {
 
   const last = daily[daily.length - 1];
   const prevWeek = daily[daily.length - 6] ?? daily[0];
-  const asOf = new Date(last.date).toLocaleDateString("en-GB", {
+  const asOf = new Date(last.date).toLocaleDateString("tr-TR", {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -36,22 +37,22 @@ export default async function Home() {
 
   const kpis: { label: string; value: number; delta: number; note: string }[] = [
     {
-      label: "Net reserves ex-swaps",
+      label: "Swap hariç net rezerv",
       value: last.net_excl_swap,
       delta: last.net_excl_swap - prevWeek.net_excl_swap,
-      note: "Excl. swaps and Treasury FX",
+      note: "Swaplar ve Hazine dövizi hariç",
     },
     {
-      label: "Net FX position",
+      label: "Net döviz pozisyonu",
       value: last.net_incl_swap,
       delta: last.net_incl_swap - prevWeek.net_incl_swap,
-      note: "External assets − total FX liabilities",
+      note: "Dış varlıklar − toplam döviz yükümlülükleri",
     },
     {
-      label: "Gross reserves",
+      label: "Brüt rezerv",
       value: last.gross,
       delta: weekly[weekly.length - 1].gross - weekly[weekly.length - 2].gross,
-      note: `Weekly, as of ${weekly[weekly.length - 1].date.split("-").reverse().join(".")}`,
+      note: `Haftalık, ${weekly[weekly.length - 1].date.split("-").reverse().join(".")} itibarıyla`,
     },
   ];
 
@@ -64,15 +65,15 @@ export default async function Home() {
               <span className="text-xs font-bold text-[#080b10]">₺</span>
             </div>
             <div className="leading-tight">
-              <p className="font-semibold text-slate-100 text-sm tracking-tight">CBRT Reserve Tracker</p>
+              <p className="font-semibold text-slate-100 text-sm tracking-tight">TCMB Rezerv Takip</p>
               <p className="text-[11px] text-slate-500 hidden sm:block">
-                Central Bank of the Republic of Türkiye
+                Türkiye Cumhuriyet Merkez Bankası
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            Updated {asOf}
+            Son veri: {asOf}
           </div>
         </div>
       </header>
@@ -80,11 +81,11 @@ export default async function Home() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10 space-y-6">
         <section>
           <h1 className="text-2xl sm:text-3xl font-semibold text-slate-50 tracking-tight">
-            FX Reserves
+            Döviz Rezervleri
           </h1>
           <p className="text-sm text-slate-400 mt-1 max-w-2xl">
-            Daily net FX position of the CBRT from its analytical balance sheet, adjusted for swaps,
-            alongside gross reserves. Values in USD billion.
+            TCMB analitik bilançosundan günlük net döviz pozisyonu, swaplardan arındırılmış net rezerv
+            ve brüt rezervler. Değerler milyar ABD doları.
           </p>
         </section>
 
@@ -97,9 +98,9 @@ export default async function Home() {
               <p className="text-xs font-medium text-slate-400">{k.label}</p>
               <div className="flex items-baseline gap-2 mt-2">
                 <span className="text-3xl font-semibold text-slate-50 tracking-tight">
-                  {k.value.toFixed(1)}
+                  {fmtNum(k.value, 1)}
                 </span>
-                <span className="text-xs text-slate-500">bn $</span>
+                <span className="text-xs text-slate-500">mlr $</span>
                 <span
                   className={`ml-auto whitespace-nowrap text-xs font-medium px-2 py-0.5 rounded-full ${
                     k.delta >= 0
@@ -108,7 +109,7 @@ export default async function Home() {
                   }`}
                 >
                   {k.delta >= 0 ? "+" : "−"}
-                  {Math.abs(k.delta).toFixed(1)} 1W
+                  {fmtNum(Math.abs(k.delta), 1)} 1H
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 mt-1">{k.note}</p>
@@ -126,8 +127,8 @@ export default async function Home() {
 
       <footer className="border-t border-[#1a2433] mt-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row justify-between gap-2 text-xs text-slate-500">
-          <span>Source: CBRT EVDS — analytical balance sheet, weekly reserves, CBRT swap stocks, reserve template, BIST gold prices. Refreshed hourly.</span>
-          <span>Not financial advice.</span>
+          <span>Kaynak: TCMB EVDS — analitik bilanço, haftalık rezervler, TCMB swap stokları, rezerv şablonu, BIST altın fiyatları. Saatlik güncellenir.</span>
+          <span>Yatırım tavsiyesi değildir.</span>
         </div>
       </footer>
     </main>

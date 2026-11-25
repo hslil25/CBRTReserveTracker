@@ -18,7 +18,7 @@ import {
   METRICS,
   METRIC_LABELS,
 } from "@/lib/types";
-import { getBiggestWeeklyChanges } from "@/lib/reserves";
+import { getBiggestWeeklyChanges, fmtNum } from "@/lib/reserves";
 
 type Granularity = "daily" | "weekly";
 
@@ -29,18 +29,18 @@ interface Props {
 
 const LABELS: Record<Granularity, { title: string; subtitle: string }> = {
   daily: {
-    title: "Biggest Daily Changes",
-    subtitle: "Top 10 absolute day-over-day moves",
+    title: "En Büyük Günlük Değişimler",
+    subtitle: "Mutlak değerce en büyük 10 günlük değişim, milyar $",
   },
   weekly: {
-    title: "Biggest Weekly Changes",
-    subtitle: "Top 10 absolute week-over-week moves",
+    title: "En Büyük Haftalık Değişimler",
+    subtitle: "Mutlak değerce en büyük 10 haftalık değişim, milyar $",
   },
 };
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return d.toLocaleDateString("tr-TR", { month: "short", day: "numeric", year: "numeric" });
 }
 
 interface TooltipPayload {
@@ -60,11 +60,11 @@ function CustomTooltip({
     <div className="bg-[#0f1621] border border-[#243246] rounded-lg px-3 py-2 text-xs shadow-xl">
       <p className="text-slate-400 mb-1">{formatDate(d.date)}</p>
       <p className="text-slate-300">
-        {d.from.toFixed(1)}B → {d.to.toFixed(1)}B
+        {fmtNum(d.from, 1)} → {fmtNum(d.to, 1)} mlr $
       </p>
       <p className={d.change >= 0 ? "text-emerald-400 font-bold" : "text-red-400 font-bold"}>
         {d.change >= 0 ? "+" : ""}
-        {d.change.toFixed(1)}B
+        {fmtNum(d.change, 1)} mlr $
       </p>
     </div>
   );
@@ -120,7 +120,7 @@ export default function BiggestChanges({ series, granularity }: Props) {
             tick={{ fill: "#64748b", fontSize: 10 }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(v) => `${v > 0 ? "+" : ""}${v}B`}
+            tickFormatter={(v) => `${v > 0 ? "+" : ""}${v}`}
             width={52}
           />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: "#1e2d3d44" }} />
@@ -149,7 +149,7 @@ export default function BiggestChanges({ series, granularity }: Props) {
               }`}
             >
               {c.change >= 0 ? "+" : ""}
-              {c.change.toFixed(1)}B
+              {fmtNum(c.change, 1)}
             </p>
           </div>
         ))}
