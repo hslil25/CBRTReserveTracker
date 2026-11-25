@@ -39,7 +39,7 @@ const METRIC_TOOLTIPS: Record<keyof typeof METRIC_LABELS, string> = {
   net_excl_swap:
     "Net FX position minus the CBRT swap stock, excluding Treasury FX. Removes borrowed FX from the net figure.",
   net_incl_swap:
-    "Net FX position (TP.AB.A02 − TP.AB.A10), swaps included. Treasury FX deposits are counted as liabilities.",
+    "Net FX position: external assets (TP.AB.A02) − total FX liabilities (TP.AB.A10), swaps included. Treasury FX deposits are counted as liabilities.",
   gross: "Gross FX reserves — total FX assets without subtracting liabilities.",
 };
 

@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { ReserveDataPoint } from "./types";
+import { ReserveDataPoint, GoldWeeklyPoint, SwapPoint } from "./types";
 
 const EVDS_BASE = "https://evds3.tcmb.gov.tr/igmevdsms-dis";
 
@@ -14,10 +14,11 @@ function getApiKey(): string {
 }
 
 // TP.AB.TOPLAM   — Gross reserves, weekly, USD million
-// TP.AB.A02      — Total FX assets, daily, thousand TRY
+// TP.AB.A02      — External assets (A.1 Dış Varlıklar), daily, thousand TRY
 // TP.AB.A10      — Total FX liabilities (incl. bank and Treasury FX deposits), daily, thousand TRY
 // TP.DK.USD.A.YTL / TP.DK.USD.S.YTL — daily USD/TRY ask / bid
 // TP.DOVVARNC.K23 + K14 — monthly swap balance, USD million (negative = liability)
+// TP.SWAPTEKTAR.*  — daily CBRT swap stocks with domestic counterparties, USD million
 const SERIES_GROSS_RESERVE = "TP.AB.TOPLAM";
 const SERIES_DAILY_A02 = "TP.AB.A02";
 const SERIES_DAILY_A10 = "TP.AB.A10";
@@ -140,81 +141,146 @@ function nearestRate(map: Map<string, number>, isoDate: string): number | null {
   return null;
 }
 
+const SERIES_GOLD = "TP.AB.C1";
+const SERIES_FX = "TP.AB.C2";
+const SERIES_GOLD_PRICE = "TP.ALTINPIYASA.KAP03";
+// Gold liabilities on the weekly CBRT statement, fine grams.
+const SERIES_GOLD_LIAB = ["TP.BL0823", "TP.BL128", "TP.BL137", "TP.BL0891", "TP.BL142"];
+const SERIES_SWAP_BUY = "TP.SWAPTEKTAR.TOTALSTOKALIMYONLU";
+const SERIES_SWAP_SELL = "TP.SWAPTEKTAR.TOTALSTOKSATIMYONLU";
+const GOLD_START_DATE = "01-07-2018";
+const SWAP_DAILY_START_DATE = "01-01-2021";
+const GRAMS_PER_OZ = 31.1034768;
+
+const k = (code: string) => code.replace(/\./g, "_");
+
 export interface ReserveSeries {
   daily: ReserveDataPoint[];
   weekly: ReserveDataPoint[];
   monthly: ReserveDataPoint[];
+  gold: GoldWeeklyPoint[];
+  swaps: SwapPoint[];
+}
+
+function monthKeyOf(tarih: string): string {
+  const [yyyy, m] = tarih.split("-");
+  return `${yyyy}-${m.padStart(2, "0")}`;
+}
+
+// Latest value at or before `key` in a sorted [key, value] list.
+function lookupAtOrBefore<T>(sorted: [string, T][], key: string): T | undefined {
+  let lo = 0;
+  let hi = sorted.length - 1;
+  let found: T | undefined;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (sorted[mid][0] <= key) {
+      found = sorted[mid][1];
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return found;
 }
 
 export const getReserveSeries = cache(async (): Promise<ReserveSeries> => {
   const endDate = todayDDMMYYYY();
 
-  const [grossItems, fxItems, swapItems, dailyItems, debtItems] = await Promise.all([
-    fetchSeries([SERIES_GROSS_RESERVE], START_DATE, endDate),
+  const [
+    weeklyResItems,
+    fxItems,
+    swapItems,
+    dailyItems,
+    debtItems,
+    goldPriceItems,
+    goldLiabItems,
+    swapDailyItems,
+  ] = await Promise.all([
+    fetchSeries([SERIES_GROSS_RESERVE, SERIES_GOLD, SERIES_FX], START_DATE, endDate),
     fetchSeries([SERIES_USD_ASK, SERIES_USD_BID], START_DATE, endDate),
     fetchSeries([SERIES_SWAP_K23, SERIES_SWAP_K14], START_DATE, endDate),
     fetchSeries([SERIES_DAILY_A02, SERIES_DAILY_A10], START_DATE, endDate),
     fetchSeries([SERIES_ST_DEBT], START_DATE, endDate),
+    fetchSeries([SERIES_GOLD_PRICE], GOLD_START_DATE, endDate),
+    fetchSeries(SERIES_GOLD_LIAB, GOLD_START_DATE, endDate),
+    fetchSeries([SERIES_SWAP_BUY, SERIES_SWAP_SELL], SWAP_DAILY_START_DATE, endDate),
   ]);
 
   const fxMap = buildUsdTryMap(fxItems);
-  const grossKey = SERIES_GROSS_RESERVE.replace(/\./g, "_");
-  const swapK23Key = SERIES_SWAP_K23.replace(/\./g, "_");
-  const swapK14Key = SERIES_SWAP_K14.replace(/\./g, "_");
-  const a02Key = SERIES_DAILY_A02.replace(/\./g, "_");
-  const a10Key = SERIES_DAILY_A10.replace(/\./g, "_");
-  const debtKey = SERIES_ST_DEBT.replace(/\./g, "_");
 
-  // Gross (USD million → billion), weekly.
-  const grossPoints: { date: string; value: number }[] = [];
-  for (const it of grossItems) {
-    const v = parseNum(it[grossKey]);
-    if (v === null) continue;
-    grossPoints.push({ date: ddmmyyyyToIso(it.Tarih), value: v / 1000 });
+  // Weekly reserves (USD million → billion).
+  const weeklyRes: { date: string; gross: number; gold: number | null; fx: number | null }[] = [];
+  for (const it of weeklyResItems) {
+    const gross = parseNum(it[k(SERIES_GROSS_RESERVE)]);
+    if (gross === null) continue;
+    const gold = parseNum(it[k(SERIES_GOLD)]);
+    const fx = parseNum(it[k(SERIES_FX)]);
+    weeklyRes.push({
+      date: ddmmyyyyToIso(it.Tarih),
+      gross: gross / 1000,
+      gold: gold === null ? null : gold / 1000,
+      fx: fx === null ? null : fx / 1000,
+    });
   }
-  grossPoints.sort((a, b) => a.date.localeCompare(b.date));
+  weeklyRes.sort((a, b) => a.date.localeCompare(b.date));
 
-  // Monthly swap (K23 + K14, USD million → billion). Tarih is "YYYY-M".
-  const swapByMonth = new Map<string, number>();
+  // Monthly reserve-template swap legs (USD million → billion).
+  const monthlySwap: [string, { k23: number; k14: number }][] = [];
   for (const it of swapItems) {
-    const k23 = parseNum(it[swapK23Key]);
-    const k14 = parseNum(it[swapK14Key]);
+    const k23 = parseNum(it[k(SERIES_SWAP_K23)]);
+    const k14 = parseNum(it[k(SERIES_SWAP_K14)]);
     if (k23 === null && k14 === null) continue;
-    const [yyyy, m] = it.Tarih.split("-");
-    swapByMonth.set(`${yyyy}-${m.padStart(2, "0")}`, ((k23 ?? 0) + (k14 ?? 0)) / 1000);
+    monthlySwap.push([monthKeyOf(it.Tarih), { k23: (k23 ?? 0) / 1000, k14: (k14 ?? 0) / 1000 }]);
   }
-  const sortedSwapMonths = Array.from(swapByMonth.keys()).sort();
+  monthlySwap.sort((a, b) => a[0].localeCompare(b[0]));
 
-  function swapForMonth(monthKey: string): number {
-    for (let i = sortedSwapMonths.length - 1; i >= 0; i--) {
-      if (sortedSwapMonths[i] <= monthKey) return swapByMonth.get(sortedSwapMonths[i])!;
+  // Daily CBRT swap stocks (USD million → billion), carried forward over gaps.
+  const dailySwapStock: [string, { buy: number; sell: number }][] = [];
+  for (const it of swapDailyItems) {
+    const buy = parseNum(it[k(SERIES_SWAP_BUY)]);
+    const sell = parseNum(it[k(SERIES_SWAP_SELL)]);
+    if (buy === null || sell === null) continue;
+    dailySwapStock.push([ddmmyyyyToIso(it.Tarih), { buy: buy / 1000, sell: sell / 1000 }]);
+  }
+  dailySwapStock.sort((a, b) => a[0].localeCompare(b[0]));
+
+  // K14 = −(buy-side stock + swaps with foreign central banks). The central-bank
+  // leg is only published monthly, so back it out at each month end and carry it.
+  const cbSwapByMonth: [string, number][] = [];
+  for (const [month, { k14 }] of monthlySwap) {
+    const monthEnd = lookupAtOrBefore(dailySwapStock, `${month}-31`);
+    if (!monthEnd || month < SWAP_DAILY_START_DATE.slice(6) + "-01") continue;
+    cbSwapByMonth.push([month, -k14 - monthEnd.buy]);
+  }
+
+  const firstDailySwap = dailySwapStock[0]?.[0] ?? "9999";
+  function swapFor(iso: string): { net: number; buy: number; sell: number; cb: number } | null {
+    const month = iso.slice(0, 7);
+    if (iso >= firstDailySwap && cbSwapByMonth.length) {
+      const stock = lookupAtOrBefore(dailySwapStock, iso)!;
+      const cb = lookupAtOrBefore(cbSwapByMonth, month) ?? cbSwapByMonth[0][1];
+      return { net: stock.sell - stock.buy - cb, buy: stock.buy, sell: stock.sell, cb };
     }
-    return 0;
+    const m = lookupAtOrBefore(monthlySwap, month);
+    return m ? { net: m.k23 + m.k14, buy: -m.k14, sell: m.k23, cb: 0 } : null;
   }
 
   // Monthly short-term external debt (TP.KVDB19, USD million → billion).
-  const debtByMonth = new Map<string, number>();
+  const debtByMonth: [string, number][] = [];
   for (const it of debtItems) {
-    const v = parseNum(it[debtKey]);
+    const v = parseNum(it[k(SERIES_ST_DEBT)]);
     if (v === null) continue;
-    const [yyyy, m] = it.Tarih.split("-");
-    debtByMonth.set(`${yyyy}-${m.padStart(2, "0")}`, v / 1000);
+    debtByMonth.push([monthKeyOf(it.Tarih), v / 1000]);
   }
-  const sortedDebtMonths = Array.from(debtByMonth.keys()).sort();
-
-  function debtForMonth(monthKey: string): number | undefined {
-    for (let i = sortedDebtMonths.length - 1; i >= 0; i--) {
-      if (sortedDebtMonths[i] <= monthKey) return debtByMonth.get(sortedDebtMonths[i]);
-    }
-    return undefined;
-  }
+  debtByMonth.sort((a, b) => a[0].localeCompare(b[0]));
 
   // Net FX position = (A02 − A10) / mid USD/TRY, USD billion. A10 already holds
   // Treasury FX deposits as a liability, so this excludes Treasury FX.
   const nfpPoints: { date: string; value: number }[] = [];
   for (const it of dailyItems) {
-    const a02 = parseNum(it[a02Key]);
-    const a10 = parseNum(it[a10Key]);
+    const a02 = parseNum(it[k(SERIES_DAILY_A02)]);
+    const a10 = parseNum(it[k(SERIES_DAILY_A10)]);
     if (a02 === null || a10 === null) continue;
     const iso = ddmmyyyyToIso(it.Tarih);
     const rate = nearestRate(fxMap, iso);
@@ -224,11 +290,11 @@ export const getReserveSeries = cache(async (): Promise<ReserveSeries> => {
   nfpPoints.sort((a, b) => a.date.localeCompare(b.date));
 
   function makePoint(date: string, nfp: number, gross: number): ReserveDataPoint {
-    const month = date.slice(0, 7);
-    const debt = debtForMonth(month);
+    const debt = lookupAtOrBefore(debtByMonth, date.slice(0, 7));
+    const swap = swapFor(date)?.net ?? 0;
     return {
       date,
-      net_excl_swap: parseFloat((nfp + swapForMonth(month)).toFixed(2)),
+      net_excl_swap: parseFloat((nfp + swap).toFixed(2)),
       net_incl_swap: parseFloat(nfp.toFixed(2)),
       gross: parseFloat(gross.toFixed(2)),
       st_debt_1y: debt !== undefined ? parseFloat(debt.toFixed(2)) : undefined,
@@ -239,18 +305,18 @@ export const getReserveSeries = cache(async (): Promise<ReserveSeries> => {
   const daily: ReserveDataPoint[] = [];
   let g = -1;
   for (const p of nfpPoints) {
-    while (g + 1 < grossPoints.length && grossPoints[g + 1].date <= p.date) g++;
+    while (g + 1 < weeklyRes.length && weeklyRes[g + 1].date <= p.date) g++;
     if (g < 0) continue;
-    daily.push(makePoint(p.date, p.value, grossPoints[g].value));
+    daily.push(makePoint(p.date, p.value, weeklyRes[g].gross));
   }
 
   // Weekly: one point per gross publish date, using that day's (or the last prior) net position.
   const weekly: ReserveDataPoint[] = [];
   let n = -1;
-  for (const gp of grossPoints) {
-    while (n + 1 < nfpPoints.length && nfpPoints[n + 1].date <= gp.date) n++;
+  for (const w of weeklyRes) {
+    while (n + 1 < nfpPoints.length && nfpPoints[n + 1].date <= w.date) n++;
     if (n < 0) continue;
-    weekly.push(makePoint(gp.date, nfpPoints[n].value, gp.value));
+    weekly.push(makePoint(w.date, nfpPoints[n].value, w.gross));
   }
 
   // Monthly: last weekly observation per calendar month.
@@ -260,5 +326,72 @@ export const getReserveSeries = cache(async (): Promise<ReserveSeries> => {
   }
   const monthly = Array.from(byMonth.values()).sort((a, b) => a.date.localeCompare(b.date));
 
-  return { daily, weekly, monthly };
+  // ---- Gold decomposition (weekly, from 2018 when BIST gold prices start) ----
+  const goldPrice: [string, number][] = [];
+  for (const it of goldPriceItems) {
+    const v = parseNum(it[k(SERIES_GOLD_PRICE)]);
+    if (v !== null) goldPrice.push([ddmmyyyyToIso(it.Tarih), v]);
+  }
+  goldPrice.sort((a, b) => a[0].localeCompare(b[0]));
+
+  const goldLiabOz: [string, number][] = [];
+  for (const it of goldLiabItems) {
+    let grams = 0;
+    for (const code of SERIES_GOLD_LIAB) grams += parseNum(it[k(code)]) ?? 0;
+    goldLiabOz.push([ddmmyyyyToIso(it.Tarih), grams / GRAMS_PER_OZ / 1e6]);
+  }
+  goldLiabOz.sort((a, b) => a[0].localeCompare(b[0]));
+
+  const weeklyByDate = new Map(weekly.map((w) => [w.date, w]));
+  const gold: GoldWeeklyPoint[] = [];
+  for (const w of weeklyRes) {
+    if (w.gold === null || w.fx === null || w.date < goldPrice[0]?.[0]) continue;
+    const price = lookupAtOrBefore(goldPrice, w.date);
+    const wk = weeklyByDate.get(w.date);
+    if (!price || !wk) continue;
+    const oz = (w.gold * 1000) / price;
+    const liabOz = lookupAtOrBefore(goldLiabOz, w.date) ?? 0;
+    const netGoldValue = ((oz - liabOz) * price) / 1000;
+    const prev = gold[gold.length - 1];
+    const dPrice = prev ? price - prev.price : 0;
+    const goldPriceGross = prev ? (prev.oz * dPrice) / 1000 : 0;
+    const goldPriceNet = prev ? ((prev.oz - prev.liabOz) * dPrice) / 1000 : 0;
+    const swap = swapFor(w.date);
+    const round = (v: number) => parseFloat(v.toFixed(3));
+    gold.push({
+      date: w.date,
+      price,
+      oz: round(oz),
+      liabOz: round(liabOz),
+      gold: round(w.gold),
+      fx: round(w.fx),
+      gross: round(w.gross),
+      netExclSwap: wk.net_excl_swap,
+      netGoldValue: round(netGoldValue),
+      netLiquid: round(wk.net_excl_swap - netGoldValue),
+      swapNet: round(swap?.net ?? 0),
+      c: {
+        goldPriceGross: round(goldPriceGross),
+        goldQty: prev ? round(w.gold - prev.gold - goldPriceGross) : 0,
+        fx: prev ? round(w.fx - prev.fx) : 0,
+        goldPriceNet: round(goldPriceNet),
+        netFlows: prev ? round(wk.net_excl_swap - prev.netExclSwap - goldPriceNet) : 0,
+      },
+    });
+  }
+
+  const swaps: SwapPoint[] = [];
+  for (const [date] of dailySwapStock) {
+    const s = swapFor(date);
+    if (!s) continue;
+    swaps.push({
+      date,
+      sell: parseFloat(s.sell.toFixed(2)),
+      buy: parseFloat(s.buy.toFixed(2)),
+      cb: parseFloat(s.cb.toFixed(2)),
+      net: parseFloat(s.net.toFixed(2)),
+    });
+  }
+
+  return { daily, weekly, monthly, gold, swaps };
 });

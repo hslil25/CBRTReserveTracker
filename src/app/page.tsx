@@ -2,6 +2,8 @@ import ReserveChart from "@/components/ReserveChart";
 import BiggestChanges from "@/components/BiggestChanges";
 import HistoricalChart from "@/components/HistoricalChart";
 import GuidottiGreenspan from "@/components/GuidottiGreenspan";
+import ReserveDecomposition from "@/components/ReserveDecomposition";
+import LiquidReserves from "@/components/LiquidReserves";
 import { getReserveSeries } from "@/lib/evds";
 import { ReserveDataPoint } from "@/lib/types";
 
@@ -18,7 +20,7 @@ function sliceLastYears(series: ReserveDataPoint[], years: number): ReserveDataP
 }
 
 export default async function Home() {
-  const { daily, weekly, monthly } = await getReserveSeries();
+  const { daily, weekly, monthly, gold, swaps } = await getReserveSeries();
 
   const dailyRecent = sliceLastYears(daily, 3);
   const weeklyRecent = sliceLastYears(weekly, 3);
@@ -43,7 +45,7 @@ export default async function Home() {
       label: "Net FX position",
       value: last.net_incl_swap,
       delta: last.net_incl_swap - prevWeek.net_incl_swap,
-      note: "FX assets − FX liabilities",
+      note: "External assets − total FX liabilities",
     },
     {
       label: "Gross reserves",
@@ -115,6 +117,8 @@ export default async function Home() {
         </section>
 
         <ReserveChart daily={dailyRecent} weekly={weeklyRecent} monthly={monthlyRecent} />
+        <ReserveDecomposition gold={gold} />
+        <LiquidReserves gold={gold} swaps={swaps} />
         <BiggestChanges series={weeklyRecent} granularity="weekly" />
         <HistoricalChart weekly={weekly} monthly={monthly} />
         <GuidottiGreenspan weekly={weekly} />
@@ -122,7 +126,7 @@ export default async function Home() {
 
       <footer className="border-t border-[#1a2433] mt-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row justify-between gap-2 text-xs text-slate-500">
-          <span>Source: CBRT EVDS (TP.AB.A02, TP.AB.A10, TP.AB.TOPLAM, TP.DOVVARNC). Refreshed hourly.</span>
+          <span>Source: CBRT EVDS — analytical balance sheet, weekly reserves, CBRT swap stocks, reserve template, BIST gold prices. Refreshed hourly.</span>
           <span>Not financial advice.</span>
         </div>
       </footer>

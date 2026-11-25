@@ -21,6 +21,7 @@ import {
   METRIC_COLORS,
 } from "@/lib/types";
 import { buildChartData } from "@/lib/reserves";
+import Segmented from "@/components/Segmented";
 
 interface Props {
   daily: ReserveDataPoint[];
@@ -50,7 +51,7 @@ const METRIC_TOOLTIPS: Record<keyof typeof METRIC_LABELS, string> = {
   net_excl_swap:
     "Net FX position minus the CBRT swap stock, excluding Treasury FX. Removes borrowed FX from the net figure.",
   net_incl_swap:
-    "Net FX position (TP.AB.A02 − TP.AB.A10), swaps included. Treasury FX deposits are counted as liabilities.",
+    "Net FX position: external assets (TP.AB.A02) − total FX liabilities (TP.AB.A10), swaps included. Treasury FX deposits are counted as liabilities.",
   gross: "Gross FX reserves — total FX assets without subtracting liabilities.",
 };
 
@@ -221,35 +222,9 @@ export default function ReserveChart({ daily, weekly, monthly }: Props) {
       </ResponsiveContainer>
 
       <p className="text-[11px] text-slate-500 mt-4 pt-4 border-t border-[#1a2433]">
-        {VIEW_DESCRIPTIONS[view]} Source: CBRT EVDS analytical balance sheet; swaps from the monthly reserve template.
+        {VIEW_DESCRIPTIONS[view]} Source: CBRT EVDS analytical balance sheet; swaps from daily CBRT swap stocks plus monthly central-bank swaps.
       </p>
     </section>
   );
 }
 
-function Segmented<T extends string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: { value: T; label: string; title?: string }[];
-  value: T;
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div className="flex bg-[#0a0f16] border border-[#1a2433] rounded-lg p-0.5">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          onClick={() => onChange(o.value)}
-          title={o.title}
-          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-            value === o.value ? "bg-[#1c2838] text-slate-100" : "text-slate-500 hover:text-slate-300"
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}

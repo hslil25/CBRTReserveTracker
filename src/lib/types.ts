@@ -35,3 +35,33 @@ export const METRIC_COLORS: Record<ReserveMetric, string> = {
 };
 
 export const METRICS: ReserveMetric[] = ["net_excl_swap", "net_incl_swap", "gross"];
+
+export interface GoldWeeklyPoint {
+  date: string;
+  price: number;        // USD per troy ounce
+  oz: number;           // CBRT gold holdings, million oz (implied from value / price)
+  liabOz: number;       // gold owed to banks and others, million oz
+  gold: number;         // gold reserves, USD billion
+  fx: number;           // FX reserves excl. gold, USD billion
+  gross: number;
+  netExclSwap: number;
+  netGoldValue: number; // (oz − liabOz) × price, USD billion
+  netLiquid: number;    // net reserves ex-swaps minus net gold
+  swapNet: number;
+  // Week-on-week contributions, USD billion.
+  c: {
+    goldPriceGross: number;
+    goldQty: number;
+    fx: number;
+    goldPriceNet: number;
+    netFlows: number;
+  };
+}
+
+export interface SwapPoint {
+  date: string;
+  sell: number; // CBRT sold FX spot / buys back forward: future FX claim
+  buy: number;  // CBRT borrowed FX spot: future FX liability
+  cb: number;   // swaps with foreign central banks (monthly, carried forward)
+  net: number;  // sell − buy − cb
+}
