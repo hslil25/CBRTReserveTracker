@@ -13,13 +13,11 @@ function getApiKey(): string {
   return key;
 }
 
-// TP.AB.N05      — Net international reserves (incl. swaps), weekly, thousand TRY
 // TP.AB.TOPLAM   — Gross reserves, weekly, USD million
 // TP.AB.A02      — Total FX assets, daily, thousand TRY
-// TP.AB.A10      — Total FX liabilities, daily, thousand TRY
+// TP.AB.A10      — Total FX liabilities (incl. bank and Treasury FX deposits), daily, thousand TRY
 // TP.DK.USD.A.YTL / TP.DK.USD.S.YTL — daily USD/TRY ask / bid
 // TP.DOVVARNC.K23 + K14 — monthly swap balance, USD million (negative = liability)
-const SERIES_NET_RESERVE = "TP.AB.N05";
 const SERIES_GROSS_RESERVE = "TP.AB.TOPLAM";
 const SERIES_DAILY_A02 = "TP.AB.A02";
 const SERIES_DAILY_A10 = "TP.AB.A10";
@@ -151,8 +149,7 @@ export interface ReserveSeries {
 export const getReserveSeries = cache(async (): Promise<ReserveSeries> => {
   const endDate = todayDDMMYYYY();
 
-  const [netItems, grossItems, fxItems, swapItems, dailyItems, debtItems] = await Promise.all([
-    fetchSeries([SERIES_NET_RESERVE], START_DATE, endDate),
+  const [grossItems, fxItems, swapItems, dailyItems, debtItems] = await Promise.all([
     fetchSeries([SERIES_GROSS_RESERVE], START_DATE, endDate),
     fetchSeries([SERIES_USD_ASK, SERIES_USD_BID], START_DATE, endDate),
     fetchSeries([SERIES_SWAP_K23, SERIES_SWAP_K14], START_DATE, endDate),
@@ -161,7 +158,6 @@ export const getReserveSeries = cache(async (): Promise<ReserveSeries> => {
   ]);
 
   const fxMap = buildUsdTryMap(fxItems);
-  const netKey = SERIES_NET_RESERVE.replace(/\./g, "_");
   const grossKey = SERIES_GROSS_RESERVE.replace(/\./g, "_");
   const swapK23Key = SERIES_SWAP_K23.replace(/\./g, "_");
   const swapK14Key = SERIES_SWAP_K14.replace(/\./g, "_");
@@ -169,34 +165,31 @@ export const getReserveSeries = cache(async (): Promise<ReserveSeries> => {
   const a10Key = SERIES_DAILY_A10.replace(/\./g, "_");
   const debtKey = SERIES_ST_DEBT.replace(/\./g, "_");
 
-  // Gross (USD million) indexed by ISO date.
-  const grossByDate = new Map<string, number>();
+  // Gross (USD million → billion), weekly.
+  const grossPoints: { date: string; value: number }[] = [];
   for (const it of grossItems) {
     const v = parseNum(it[grossKey]);
     if (v === null) continue;
-    grossByDate.set(ddmmyyyyToIso(it.Tarih), v / 1000); // million → billion
+    grossPoints.push({ date: ddmmyyyyToIso(it.Tarih), value: v / 1000 });
   }
+  grossPoints.sort((a, b) => a.date.localeCompare(b.date));
 
-  // Monthly swap (K23 + K14, USD million). Tarih is "YYYY-M"; normalize to "YYYY-MM".
+  // Monthly swap (K23 + K14, USD million → billion). Tarih is "YYYY-M".
   const swapByMonth = new Map<string, number>();
   for (const it of swapItems) {
     const k23 = parseNum(it[swapK23Key]);
     const k14 = parseNum(it[swapK14Key]);
     if (k23 === null && k14 === null) continue;
     const [yyyy, m] = it.Tarih.split("-");
-    const monthKey = `${yyyy}-${m.padStart(2, "0")}`;
-    const sumMillions = (k23 ?? 0) + (k14 ?? 0);
-    swapByMonth.set(monthKey, sumMillions / 1000); // million → billion
+    swapByMonth.set(`${yyyy}-${m.padStart(2, "0")}`, ((k23 ?? 0) + (k14 ?? 0)) / 1000);
   }
   const sortedSwapMonths = Array.from(swapByMonth.keys()).sort();
-  const lastSwapMonth = sortedSwapMonths[sortedSwapMonths.length - 1];
 
   function swapForMonth(monthKey: string): number {
-    if (swapByMonth.has(monthKey)) return swapByMonth.get(monthKey)!;
     for (let i = sortedSwapMonths.length - 1; i >= 0; i--) {
-      if (sortedSwapMonths[i] < monthKey) return swapByMonth.get(sortedSwapMonths[i])!;
+      if (sortedSwapMonths[i] <= monthKey) return swapByMonth.get(sortedSwapMonths[i])!;
     }
-    return swapByMonth.get(lastSwapMonth) ?? 0;
+    return 0;
   }
 
   // Monthly short-term external debt (TP.KVDB19, USD million → billion).
@@ -210,50 +203,15 @@ export const getReserveSeries = cache(async (): Promise<ReserveSeries> => {
   const sortedDebtMonths = Array.from(debtByMonth.keys()).sort();
 
   function debtForMonth(monthKey: string): number | undefined {
-    if (debtByMonth.has(monthKey)) return debtByMonth.get(monthKey);
     for (let i = sortedDebtMonths.length - 1; i >= 0; i--) {
-      if (sortedDebtMonths[i] < monthKey) return debtByMonth.get(sortedDebtMonths[i]);
+      if (sortedDebtMonths[i] <= monthKey) return debtByMonth.get(sortedDebtMonths[i]);
     }
     return undefined;
   }
 
-  // Weekly N05-based series. Stored value `net_incl_swap` is the raw TP.AB.N05 in USD billions.
-  const weekly: ReserveDataPoint[] = [];
-  for (const it of netItems) {
-    const thousandTry = parseNum(it[netKey]);
-    if (thousandTry === null) continue;
-    const iso = ddmmyyyyToIso(it.Tarih);
-    const rate = nearestRate(fxMap, iso);
-    if (rate === null) continue;
-    const netIncl = thousandTry / rate / 1e6;
-    const gross = grossByDate.get(iso);
-    if (gross === undefined) continue;
-    const swap = swapForMonth(iso.slice(0, 7));
-    const netExcl = netIncl + swap;
-    const debt = debtForMonth(iso.slice(0, 7));
-    weekly.push({
-      date: iso,
-      net_excl_swap: parseFloat(netExcl.toFixed(2)),
-      net_incl_swap: parseFloat(netIncl.toFixed(2)),
-      gross: parseFloat(gross.toFixed(2)),
-      st_debt_1y: debt !== undefined ? parseFloat(debt.toFixed(2)) : undefined,
-    });
-  }
-  weekly.sort((a, b) => a.date.localeCompare(b.date));
-
-  // Monthly: last weekly observation per calendar month.
-  const byMonth = new Map<string, ReserveDataPoint>();
-  for (const pt of weekly) {
-    const month = pt.date.slice(0, 7);
-    byMonth.set(month, { ...pt, date: month });
-  }
-  const monthly = Array.from(byMonth.values()).sort((a, b) => a.date.localeCompare(b.date));
-
-  // -----------------------------
-  // Daily estimation
-  // -----------------------------
-  // Daily proxy P(d) = (A02 - A10) / mid_USDTRY, in USD billions.
-  const dailyProxy = new Map<string, number>();
+  // Net FX position = (A02 − A10) / mid USD/TRY, USD billion. A10 already holds
+  // Treasury FX deposits as a liability, so this excludes Treasury FX.
+  const nfpPoints: { date: string; value: number }[] = [];
   for (const it of dailyItems) {
     const a02 = parseNum(it[a02Key]);
     const a10 = parseNum(it[a10Key]);
@@ -261,66 +219,46 @@ export const getReserveSeries = cache(async (): Promise<ReserveSeries> => {
     const iso = ddmmyyyyToIso(it.Tarih);
     const rate = nearestRate(fxMap, iso);
     if (rate === null) continue;
-    dailyProxy.set(iso, (a02 - a10) / rate / 1e6);
+    nfpPoints.push({ date: iso, value: (a02 - a10) / rate / 1e6 });
   }
+  nfpPoints.sort((a, b) => a.date.localeCompare(b.date));
 
-  // Δ at each N05 publish day: N05_USD - P (raw, pre-swap).
-  const publishDeltas: { date: string; delta: number }[] = [];
-  for (const pt of weekly) {
-    const p = dailyProxy.get(pt.date);
-    if (p === undefined) continue;
-    publishDeltas.push({ date: pt.date, delta: pt.net_incl_swap - p });
-  }
-  publishDeltas.sort((a, b) => a.date.localeCompare(b.date));
-
-  function interpDelta(iso: string): number | null {
-    if (!publishDeltas.length) return null;
-    if (iso <= publishDeltas[0].date) return publishDeltas[0].delta;
-    const last = publishDeltas[publishDeltas.length - 1];
-    if (iso >= last.date) return last.delta; // constant going forward past last publish
-    // Find surrounding publish days via binary search.
-    let lo = 0;
-    let hi = publishDeltas.length - 1;
-    while (lo < hi - 1) {
-      const mid = (lo + hi) >> 1;
-      if (publishDeltas[mid].date <= iso) lo = mid;
-      else hi = mid;
-    }
-    const t = publishDeltas[lo];
-    const tNext = publishDeltas[hi];
-    const tMs = new Date(t.date).getTime();
-    const tNextMs = new Date(tNext.date).getTime();
-    const dMs = new Date(iso).getTime();
-    const frac = (dMs - tMs) / (tNextMs - tMs); // n/7 when publish gap is exactly 7 days
-    return t.delta + (tNext.delta - t.delta) * frac;
-  }
-
-  // Carry-forward gross from the most recent weekly publish.
-  let grossCursor = 0;
-  function grossForDate(iso: string): number {
-    while (grossCursor + 1 < weekly.length && weekly[grossCursor + 1].date <= iso) {
-      grossCursor++;
-    }
-    return weekly[grossCursor].gross;
-  }
-
-  const dailyDates = Array.from(dailyProxy.keys()).sort();
-  const daily: ReserveDataPoint[] = [];
-  for (const iso of dailyDates) {
-    const delta = interpDelta(iso);
-    if (delta === null) continue;
-    const p = dailyProxy.get(iso)!;
-    const netIncl = p + delta;
-    const swap = swapForMonth(iso.slice(0, 7));
-    const netExcl = netIncl + swap;
-    const gross = grossForDate(iso);
-    daily.push({
-      date: iso,
-      net_excl_swap: parseFloat(netExcl.toFixed(2)),
-      net_incl_swap: parseFloat(netIncl.toFixed(2)),
+  function makePoint(date: string, nfp: number, gross: number): ReserveDataPoint {
+    const month = date.slice(0, 7);
+    const debt = debtForMonth(month);
+    return {
+      date,
+      net_excl_swap: parseFloat((nfp + swapForMonth(month)).toFixed(2)),
+      net_incl_swap: parseFloat(nfp.toFixed(2)),
       gross: parseFloat(gross.toFixed(2)),
-    });
+      st_debt_1y: debt !== undefined ? parseFloat(debt.toFixed(2)) : undefined,
+    };
   }
+
+  // Daily: every A02/A10 business day, gross carried forward from the last weekly publish.
+  const daily: ReserveDataPoint[] = [];
+  let g = -1;
+  for (const p of nfpPoints) {
+    while (g + 1 < grossPoints.length && grossPoints[g + 1].date <= p.date) g++;
+    if (g < 0) continue;
+    daily.push(makePoint(p.date, p.value, grossPoints[g].value));
+  }
+
+  // Weekly: one point per gross publish date, using that day's (or the last prior) net position.
+  const weekly: ReserveDataPoint[] = [];
+  let n = -1;
+  for (const gp of grossPoints) {
+    while (n + 1 < nfpPoints.length && nfpPoints[n + 1].date <= gp.date) n++;
+    if (n < 0) continue;
+    weekly.push(makePoint(gp.date, nfpPoints[n].value, gp.value));
+  }
+
+  // Monthly: last weekly observation per calendar month.
+  const byMonth = new Map<string, ReserveDataPoint>();
+  for (const pt of weekly) {
+    byMonth.set(pt.date.slice(0, 7), { ...pt, date: pt.date.slice(0, 7) });
+  }
+  const monthly = Array.from(byMonth.values()).sort((a, b) => a.date.localeCompare(b.date));
 
   return { daily, weekly, monthly };
 });

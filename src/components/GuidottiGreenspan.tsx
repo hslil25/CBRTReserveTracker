@@ -44,7 +44,7 @@ function CustomTooltip({ active, payload, label }: TooltipProps) {
   const pt = payload[0].payload;
   const pass = pt.ratio >= 100;
   return (
-    <div className="bg-[#0f1724] border border-[#1e2d3d] rounded px-3 py-2 text-xs shadow-xl min-w-[160px]">
+    <div className="bg-[#0f1621] border border-[#243246] rounded-lg px-3 py-2 text-xs shadow-xl min-w-[160px]">
       <p className="text-slate-400 mb-1.5">{fmtDate(label)}</p>
       <p className={pass ? "text-emerald-400" : "text-red-400"}>
         Ratio: <span className="font-bold">{pt.ratio.toFixed(1)}%</span>{" "}
@@ -93,10 +93,10 @@ export default function GuidottiGreenspan({ weekly }: Props) {
   const ratioColor = latestPass ? "#10b981" : "#ef4444";
 
   return (
-    <section className="bg-[#0d1520] border border-[#1e2d3d] rounded-xl p-6">
+    <section className="bg-[#0d131c] border border-[#1a2433] rounded-2xl p-5 sm:p-7 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-slate-300 text-sm uppercase tracking-widest mb-1">
+          <h2 className="text-slate-100 text-base font-semibold tracking-tight mb-1">
             Guidotti–Greenspan Rule
           </h2>
           <p className="text-xs text-slate-500 max-w-xl">
@@ -130,7 +130,7 @@ export default function GuidottiGreenspan({ weekly }: Props) {
             </linearGradient>
           </defs>
 
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e2d3d" vertical={false} />
+          <CartesianGrid stroke="#1a2433" vertical={false} />
           <XAxis
             dataKey="date"
             tickFormatter={fmtDate}
@@ -185,25 +185,25 @@ export default function GuidottiGreenspan({ weekly }: Props) {
         </AreaChart>
       </ResponsiveContainer>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-4 border-t border-[#1e2d3d]">
-        <div className="bg-[#0a0d12] border border-[#1e2d3d] rounded-lg px-3 py-2">
-          <p className="text-slate-600 text-xs uppercase tracking-wider mb-0.5">Pass rate</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-4 border-t border-[#1a2433]">
+        <div className="bg-[#0a0f16] border border-[#1a2433] rounded-lg px-3 py-2">
+          <p className="text-slate-500 text-xs font-medium mb-0.5">Pass rate</p>
           <p className="text-emerald-400 font-bold text-sm">
             {passPct.toFixed(0)}% <span className="text-slate-500 font-normal">of weeks</span>
           </p>
         </div>
-        <div className="bg-[#0a0d12] border border-[#1e2d3d] rounded-lg px-3 py-2">
-          <p className="text-slate-600 text-xs uppercase tracking-wider mb-0.5">Low</p>
+        <div className="bg-[#0a0f16] border border-[#1a2433] rounded-lg px-3 py-2">
+          <p className="text-slate-500 text-xs font-medium mb-0.5">Low</p>
           <p className="text-red-400 font-bold text-sm">{minPt.ratio.toFixed(1)}%</p>
           <p className="text-slate-600 text-xs">{fmtDate(minPt.date)}</p>
         </div>
-        <div className="bg-[#0a0d12] border border-[#1e2d3d] rounded-lg px-3 py-2">
-          <p className="text-slate-600 text-xs uppercase tracking-wider mb-0.5">High</p>
+        <div className="bg-[#0a0f16] border border-[#1a2433] rounded-lg px-3 py-2">
+          <p className="text-slate-500 text-xs font-medium mb-0.5">High</p>
           <p className="text-emerald-400 font-bold text-sm">{maxPt.ratio.toFixed(1)}%</p>
           <p className="text-slate-600 text-xs">{fmtDate(maxPt.date)}</p>
         </div>
-        <div className="bg-[#0a0d12] border border-[#1e2d3d] rounded-lg px-3 py-2">
-          <p className="text-slate-600 text-xs uppercase tracking-wider mb-0.5">Latest</p>
+        <div className="bg-[#0a0f16] border border-[#1a2433] rounded-lg px-3 py-2">
+          <p className="text-slate-500 text-xs font-medium mb-0.5">Latest</p>
           <p className="font-bold text-sm" style={{ color: ratioColor }}>
             {latest.ratio.toFixed(1)}%
           </p>

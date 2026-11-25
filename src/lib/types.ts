@@ -23,9 +23,9 @@ export interface WeeklyChange {
 }
 
 export const METRIC_LABELS: Record<ReserveMetric, string> = {
-  net_excl_swap: "Net (Swap Excl.)",
-  net_incl_swap: "Net (Swap Incl.)",
-  gross: "Gross",
+  net_excl_swap: "Net reserves ex-swaps",
+  net_incl_swap: "Net FX position",
+  gross: "Gross reserves",
 };
 
 export const METRIC_COLORS: Record<ReserveMetric, string> = {

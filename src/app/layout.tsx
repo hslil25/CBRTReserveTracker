@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "CBRT FX Reserves",
-  description: "Live tracker for Central Bank of Turkey FX reserve metrics",
+  description: "Daily tracker of the Central Bank of Türkiye net FX position, swap-adjusted net reserves and gross reserves, sourced from EVDS.",
 };
 
 export default function RootLayout({

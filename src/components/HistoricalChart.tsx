@@ -30,16 +30,16 @@ interface Props {
 
 const VIEW_TOOLTIPS: Record<"weekly" | "monthly", string> = {
   weekly:
-    "Official weekly publication of net reserves (TP.AB.N05). One observation per Friday.",
+    "Net FX position (A02 − A10) on each Friday. One observation per week.",
   monthly:
     "End-of-month snapshot — last weekly observation in each calendar month.",
 };
 
 const METRIC_TOOLTIPS: Record<keyof typeof METRIC_LABELS, string> = {
   net_excl_swap:
-    "Net reserves excluding the CBRT swap stock. Removes borrowed FX from the net figure.",
+    "Net FX position minus the CBRT swap stock, excluding Treasury FX. Removes borrowed FX from the net figure.",
   net_incl_swap:
-    "Net reserves as published (includes swap stock). This is the raw TP.AB.N05 series.",
+    "Net FX position (TP.AB.A02 − TP.AB.A10), swaps included. Treasury FX deposits are counted as liabilities.",
   gross: "Gross FX reserves — total FX assets without subtracting liabilities.",
 };
 
@@ -67,7 +67,7 @@ function CustomTooltip({ active, payload, label, view, color }: TooltipProps) {
   if (!active || !payload?.length || !label) return null;
   const pt = payload[0]?.payload;
   return (
-    <div className="bg-[#0f1724] border border-[#1e2d3d] rounded px-3 py-2 text-xs shadow-xl min-w-[140px]">
+    <div className="bg-[#0f1621] border border-[#243246] rounded-lg px-3 py-2 text-xs shadow-xl min-w-[140px]">
       <p className="text-slate-400 mb-1.5">{formatDateLabel(label, view)}</p>
       <p style={{ color }}>
         <span className="font-bold">
@@ -92,10 +92,10 @@ export default function HistoricalChart({ weekly, monthly }: Props) {
   const latest = chartData[chartData.length - 1]?.date;
 
   return (
-    <section className="bg-[#0d1520] border border-[#1e2d3d] rounded-xl p-6">
+    <section className="bg-[#0d131c] border border-[#1a2433] rounded-2xl p-5 sm:p-7 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-slate-300 text-sm uppercase tracking-widest mb-1">
+          <h2 className="text-slate-100 text-base font-semibold tracking-tight mb-1">
             Historical Reserves
           </h2>
           <p className="text-xs text-slate-500">
@@ -110,18 +110,17 @@ export default function HistoricalChart({ weekly, monthly }: Props) {
 
         <div className="flex flex-col gap-3 items-end">
           <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] uppercase tracking-widest text-slate-600">Metric</span>
-            <div className="flex bg-[#0a0d12] border border-[#1e2d3d] rounded-lg p-1 gap-1">
+            <span className="text-[11px] font-medium text-slate-500">Metric</span>
+            <div className="flex bg-[#0a0f16] border border-[#1a2433] rounded-lg p-1 gap-1">
               {METRICS.map((m) => (
                 <button
                   key={m}
                   onClick={() => setActiveMetric(m)}
                   title={METRIC_TOOLTIPS[m]}
                   className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                    activeMetric === m ? "text-[#0d1520] shadow" : "text-slate-500 hover:text-slate-300"
+                    activeMetric === m ? "bg-[#1c2838] text-slate-100" : "text-slate-500 hover:text-slate-300"
                   }`}
-                  style={activeMetric === m ? { backgroundColor: METRIC_COLORS[m] } : {}}
-                >
+                                  >
                   {METRIC_LABELS[m]}
                 </button>
               ))}
@@ -129,8 +128,8 @@ export default function HistoricalChart({ weekly, monthly }: Props) {
           </div>
 
           <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] uppercase tracking-widest text-slate-600">Frequency</span>
-            <div className="flex bg-[#0a0d12] border border-[#1e2d3d] rounded-lg p-1 gap-1">
+            <span className="text-[11px] font-medium text-slate-500">Frequency</span>
+            <div className="flex bg-[#0a0f16] border border-[#1a2433] rounded-lg p-1 gap-1">
               {(["weekly", "monthly"] as Array<Exclude<PeriodView, "daily">>).map((v) => (
                 <button
                   key={v}
@@ -138,7 +137,7 @@ export default function HistoricalChart({ weekly, monthly }: Props) {
                   title={VIEW_TOOLTIPS[v]}
                   className={`px-3 py-1.5 rounded text-xs font-medium transition-all capitalize ${
                     view === v
-                      ? "bg-slate-600 text-slate-100 shadow"
+                      ? "bg-[#1c2838] text-slate-100"
                       : "text-slate-500 hover:text-slate-300"
                   }`}
                 >
@@ -159,7 +158,7 @@ export default function HistoricalChart({ weekly, monthly }: Props) {
             </linearGradient>
           </defs>
 
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e2d3d" vertical={false} />
+          <CartesianGrid stroke="#1a2433" vertical={false} />
           <XAxis
             dataKey="date"
             tickFormatter={(d) => formatDateLabel(d, view)}

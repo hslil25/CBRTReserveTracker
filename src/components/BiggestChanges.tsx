@@ -17,7 +17,6 @@ import {
   ReserveMetric,
   METRICS,
   METRIC_LABELS,
-  METRIC_COLORS,
 } from "@/lib/types";
 import { getBiggestWeeklyChanges } from "@/lib/reserves";
 
@@ -58,7 +57,7 @@ function CustomTooltip({
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
-    <div className="bg-[#0f1724] border border-[#1e2d3d] rounded px-3 py-2 text-xs shadow-xl">
+    <div className="bg-[#0f1621] border border-[#243246] rounded-lg px-3 py-2 text-xs shadow-xl">
       <p className="text-slate-400 mb-1">{formatDate(d.date)}</p>
       <p className="text-slate-300">
         {d.from.toFixed(1)}B → {d.to.toFixed(1)}B
@@ -81,14 +80,14 @@ export default function BiggestChanges({ series, granularity }: Props) {
   const { title, subtitle } = LABELS[granularity];
 
   return (
-    <section className="bg-[#0d1520] border border-[#1e2d3d] rounded-xl p-6">
+    <section className="bg-[#0d131c] border border-[#1a2433] rounded-2xl p-5 sm:p-7 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-slate-300 text-sm uppercase tracking-widest">{title}</h2>
+          <h2 className="text-slate-100 text-base font-semibold tracking-tight">{title}</h2>
           <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
         </div>
 
-        <div className="flex bg-[#0a0d12] border border-[#1e2d3d] rounded-lg p-1 gap-1">
+        <div className="flex bg-[#0a0f16] border border-[#1a2433] rounded-lg p-1 gap-1">
           {METRICS.map((m) => (
             <button
               key={m}
@@ -98,8 +97,7 @@ export default function BiggestChanges({ series, granularity }: Props) {
                   ? "text-[#0d1520] shadow"
                   : "text-slate-500 hover:text-slate-300"
               }`}
-              style={activeMetric === m ? { backgroundColor: METRIC_COLORS[m] } : {}}
-            >
+                          >
               {METRIC_LABELS[m]}
             </button>
           ))}
@@ -108,7 +106,7 @@ export default function BiggestChanges({ series, granularity }: Props) {
 
       <ResponsiveContainer width="100%" height={260}>
         <BarChart data={changes} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e2d3d" vertical={false} />
+          <CartesianGrid stroke="#1a2433" vertical={false} />
           <XAxis
             dataKey="date"
             tickFormatter={formatDate}
@@ -142,7 +140,7 @@ export default function BiggestChanges({ series, granularity }: Props) {
         {changes.slice(0, 5).map((c) => (
           <div
             key={c.date}
-            className="bg-[#0a0d12] border border-[#1e2d3d] rounded-lg px-3 py-2 text-center"
+            className="bg-[#0a0f16] border border-[#1a2433] rounded-lg px-3 py-2 text-center"
           >
             <p className="text-slate-500 text-xs">{formatDate(c.date)}</p>
             <p

@@ -24,35 +24,107 @@ export default async function Home() {
   const weeklyRecent = sliceLastYears(weekly, 3);
   const monthlyRecent = sliceLastYears(monthly, 3);
 
+  const last = daily[daily.length - 1];
+  const prevWeek = daily[daily.length - 6] ?? daily[0];
+  const asOf = new Date(last.date).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  const kpis: { label: string; value: number; delta: number; note: string }[] = [
+    {
+      label: "Net reserves ex-swaps",
+      value: last.net_excl_swap,
+      delta: last.net_excl_swap - prevWeek.net_excl_swap,
+      note: "Excl. swaps and Treasury FX",
+    },
+    {
+      label: "Net FX position",
+      value: last.net_incl_swap,
+      delta: last.net_incl_swap - prevWeek.net_incl_swap,
+      note: "FX assets − FX liabilities",
+    },
+    {
+      label: "Gross reserves",
+      value: last.gross,
+      delta: weekly[weekly.length - 1].gross - weekly[weekly.length - 2].gross,
+      note: `Weekly, as of ${weekly[weekly.length - 1].date.split("-").reverse().join(".")}`,
+    },
+  ];
+
   return (
-    <main className="min-h-screen bg-[#0a0d12] text-slate-200">
-      <header className="border-b border-[#1e2d3d] px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 rounded bg-amber-500 flex items-center justify-center">
-            <span className="text-[10px] font-black text-[#0a0d12]">₺</span>
+    <main className="min-h-screen bg-[#080b10] text-slate-200">
+      <header className="border-b border-[#1a2433] bg-[#080b10]/80 backdrop-blur sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-md bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
+              <span className="text-xs font-bold text-[#080b10]">₺</span>
+            </div>
+            <div className="leading-tight">
+              <p className="font-semibold text-slate-100 text-sm tracking-tight">CBRT Reserve Tracker</p>
+              <p className="text-[11px] text-slate-500 hidden sm:block">
+                Central Bank of the Republic of Türkiye
+              </p>
+            </div>
           </div>
-          <span className="font-bold text-slate-100 tracking-tight text-sm">
-            CBRT FX Reserves
-          </span>
-          <span className="text-slate-600 text-xs hidden sm:inline">
-            Central Bank of the Republic of Turkey
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-xs text-slate-500">Live · EVDS</span>
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            Updated {asOf}
+          </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10 space-y-6">
+        <section>
+          <h1 className="text-2xl sm:text-3xl font-semibold text-slate-50 tracking-tight">
+            FX Reserves
+          </h1>
+          <p className="text-sm text-slate-400 mt-1 max-w-2xl">
+            Daily net FX position of the CBRT from its analytical balance sheet, adjusted for swaps,
+            alongside gross reserves. Values in USD billion.
+          </p>
+        </section>
+
+        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {kpis.map((k) => (
+            <div
+              key={k.label}
+              className="bg-[#0d131c] border border-[#1a2433] rounded-2xl px-5 py-4"
+            >
+              <p className="text-xs font-medium text-slate-400">{k.label}</p>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-3xl font-semibold text-slate-50 tracking-tight">
+                  {k.value.toFixed(1)}
+                </span>
+                <span className="text-xs text-slate-500">bn $</span>
+                <span
+                  className={`ml-auto whitespace-nowrap text-xs font-medium px-2 py-0.5 rounded-full ${
+                    k.delta >= 0
+                      ? "bg-emerald-500/10 text-emerald-400"
+                      : "bg-rose-500/10 text-rose-400"
+                  }`}
+                >
+                  {k.delta >= 0 ? "+" : "−"}
+                  {Math.abs(k.delta).toFixed(1)} 1W
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">{k.note}</p>
+            </div>
+          ))}
+        </section>
+
         <ReserveChart daily={dailyRecent} weekly={weeklyRecent} monthly={monthlyRecent} />
         <BiggestChanges series={weeklyRecent} granularity="weekly" />
         <HistoricalChart weekly={weekly} monthly={monthly} />
         <GuidottiGreenspan weekly={weekly} />
       </div>
 
-      <footer className="border-t border-[#1e2d3d] px-6 py-4 text-center text-xs text-slate-600 mt-8">
-        Data sourced from CBRT EVDS · Not financial advice
+      <footer className="border-t border-[#1a2433] mt-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row justify-between gap-2 text-xs text-slate-500">
+          <span>Source: CBRT EVDS (TP.AB.A02, TP.AB.A10, TP.AB.TOPLAM, TP.DOVVARNC). Refreshed hourly.</span>
+          <span>Not financial advice.</span>
+        </div>
       </footer>
     </main>
   );
