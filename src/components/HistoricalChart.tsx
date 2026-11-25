@@ -22,6 +22,7 @@ import {
   METRIC_COLORS,
 } from "@/lib/types";
 import { buildChartData, fmtNum } from "@/lib/reserves";
+import Segmented from "@/components/Segmented";
 
 interface Props {
   weekly: ReserveDataPoint[];
@@ -108,44 +109,21 @@ export default function HistoricalChart({ weekly, monthly }: Props) {
           </p>
         </div>
 
-        <div className="flex flex-col gap-3 items-end">
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-[11px] font-medium text-slate-500">Gösterge</span>
-            <div className="flex bg-[#0a0f16] border border-[#1a2433] rounded-lg p-1 gap-1">
-              {METRICS.map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setActiveMetric(m)}
-                  title={METRIC_TOOLTIPS[m]}
-                  className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                    activeMetric === m ? "bg-[#1c2838] text-slate-100" : "text-slate-500 hover:text-slate-300"
-                  }`}
-                                  >
-                  {METRIC_LABELS[m]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-[11px] font-medium text-slate-500">Frekans</span>
-            <div className="flex bg-[#0a0f16] border border-[#1a2433] rounded-lg p-1 gap-1">
-              {(["weekly", "monthly"] as Array<Exclude<PeriodView, "daily">>).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setView(v)}
-                  title={VIEW_TOOLTIPS[v]}
-                  className={`px-3 py-1.5 rounded text-xs font-medium transition-all capitalize ${
-                    view === v
-                      ? "bg-[#1c2838] text-slate-100"
-                      : "text-slate-500 hover:text-slate-300"
-                  }`}
-                >
-                  {v === "weekly" ? "Haftalık" : "Aylık"}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          <Segmented
+            options={METRICS.map((m) => ({ value: m, label: METRIC_LABELS[m], title: METRIC_TOOLTIPS[m] }))}
+            value={activeMetric}
+            onChange={setActiveMetric}
+          />
+          <Segmented
+            options={(["weekly", "monthly"] as Array<Exclude<PeriodView, "daily">>).map((v) => ({
+              value: v,
+              label: v === "weekly" ? "Haftalık" : "Aylık",
+              title: VIEW_TOOLTIPS[v],
+            }))}
+            value={view as Exclude<PeriodView, "daily">}
+            onChange={setView}
+          />
         </div>
       </div>
 

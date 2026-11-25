@@ -58,6 +58,7 @@ const METRIC_TOOLTIPS: Record<keyof typeof METRIC_LABELS, string> = {
 type Range = "3M" | "6M" | "1Y" | "3Y";
 const RANGES: Range[] = ["3M", "6M", "1Y", "3Y"];
 const RANGE_MONTHS: Record<Range, number> = { "3M": 3, "6M": 6, "1Y": 12, "3Y": 36 };
+const RANGE_SPANS: Record<Range, string> = { "3M": "3 ayda", "6M": "6 ayda", "1Y": "1 yılda", "3Y": "3 yılda" };
 const RANGE_LABELS: Record<Range, string> = { "3M": "3A", "6M": "6A", "1Y": "1Y", "3Y": "3Y" };
 const VIEW_LABELS: Record<PeriodView, string> = { daily: "Günlük", weekly: "Haftalık", monthly: "Aylık" };
 
@@ -122,8 +123,10 @@ export default function ReserveChart({ daily, weekly, monthly }: Props) {
   const latestValue = actuals[actuals.length - 1][activeMetric];
   const prevValue = actuals[actuals.length - 2]?.[activeMetric] ?? latestValue;
   const change = latestValue - prevValue;
-  const changeLabel = view === "daily" ? "günlük" : view === "weekly" ? "haftalık" : "aylık";
+  const changeLabel = view === "daily" ? "1 günde" : view === "weekly" ? "1 haftada" : "1 ayda";
   const latestDate = actuals[actuals.length - 1].date;
+  const prevDate = actuals[actuals.length - 2]?.date ?? latestDate;
+  const fmtTip = (d: string) => formatDateLabel(d, view === "monthly" ? "monthly" : "daily");
   const rangeChange = latestValue - actuals[0][activeMetric];
 
   const hasNegative = chartData.some((d) => d.value < 0);
@@ -142,11 +145,11 @@ export default function ReserveChart({ daily, weekly, monthly }: Props) {
             <span className="text-4xl font-semibold tracking-tight" style={{ color }}>
               {fmtNum(latestValue, 1)}
             </span>
-            <span className={`text-sm font-medium whitespace-nowrap ${change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+            <span title={`${fmtTip(prevDate)} → ${fmtTip(latestDate)}`} className={`text-sm font-medium whitespace-nowrap ${change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
               {change >= 0 ? "+" : "−"}{fmtNum(Math.abs(change), 1)} {changeLabel}
             </span>
-            <span className={`text-sm whitespace-nowrap ${rangeChange >= 0 ? "text-emerald-400/70" : "text-rose-400/70"}`}>
-              {rangeChange >= 0 ? "+" : "−"}{fmtNum(Math.abs(rangeChange), 1)} {RANGE_LABELS[range]}
+            <span title={`${fmtTip(actuals[0].date)} → ${fmtTip(latestDate)}`} className={`text-sm whitespace-nowrap ${rangeChange >= 0 ? "text-emerald-400/70" : "text-rose-400/70"}`}>
+              {rangeChange >= 0 ? "+" : "−"}{fmtNum(Math.abs(rangeChange), 1)} {RANGE_SPANS[range]}
             </span>
           </div>
         </div>

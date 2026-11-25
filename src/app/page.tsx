@@ -35,24 +35,52 @@ export default async function Home() {
     year: "numeric",
   });
 
-  const kpis: { label: string; value: number; delta: number; note: string }[] = [
+  const shortDay = (iso: string) =>
+    new Date(iso).toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
+  const lastW = weekly[weekly.length - 1];
+  const prevW = weekly[weekly.length - 2];
+  const lastG = gold[gold.length - 1];
+  const prevG = gold[gold.length - 2];
+
+  const kpis: {
+    label: string;
+    value: number;
+    delta: number;
+    from: string;
+    to: string;
+    note: string;
+  }[] = [
     {
       label: "Swap hariç net rezerv",
       value: last.net_excl_swap,
       delta: last.net_excl_swap - prevWeek.net_excl_swap,
+      from: prevWeek.date,
+      to: last.date,
       note: "Swaplar ve Hazine dövizi hariç",
     },
     {
       label: "Net döviz pozisyonu",
       value: last.net_incl_swap,
       delta: last.net_incl_swap - prevWeek.net_incl_swap,
+      from: prevWeek.date,
+      to: last.date,
       note: "Dış varlıklar − toplam döviz yükümlülükleri",
     },
     {
       label: "Brüt rezerv",
-      value: last.gross,
-      delta: weekly[weekly.length - 1].gross - weekly[weekly.length - 2].gross,
-      note: `Haftalık, ${weekly[weekly.length - 1].date.split("-").reverse().join(".")} itibarıyla`,
+      value: lastW.gross,
+      delta: lastW.gross - prevW.gross,
+      from: prevW.date,
+      to: lastW.date,
+      note: "Haftalık yayımlanır",
+    },
+    {
+      label: "Likit döviz rezervi",
+      value: lastG.fx,
+      delta: lastG.fx - prevG.fx,
+      from: prevG.date,
+      to: lastG.date,
+      note: "Altın hariç brüt döviz, haftalık",
     },
   ];
 
@@ -89,7 +117,7 @@ export default async function Home() {
           </p>
         </section>
 
-        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {kpis.map((k) => (
             <div
               key={k.label}
@@ -102,6 +130,7 @@ export default async function Home() {
                 </span>
                 <span className="text-xs text-slate-500">mlr $</span>
                 <span
+                  title={`${shortDay(k.from)} → ${shortDay(k.to)} arasındaki değişim`}
                   className={`ml-auto whitespace-nowrap text-xs font-medium px-2 py-0.5 rounded-full ${
                     k.delta >= 0
                       ? "bg-emerald-500/10 text-emerald-400"
@@ -109,10 +138,13 @@ export default async function Home() {
                   }`}
                 >
                   {k.delta >= 0 ? "+" : "−"}
-                  {fmtNum(Math.abs(k.delta), 1)} 1H
+                  {fmtNum(Math.abs(k.delta), 1)} / 1 hafta
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 mt-1">{k.note}</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Değişim dönemi: {shortDay(k.from)} → {shortDay(k.to)}
+              </p>
             </div>
           ))}
         </section>

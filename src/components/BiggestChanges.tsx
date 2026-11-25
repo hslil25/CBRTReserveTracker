@@ -19,6 +19,7 @@ import {
   METRIC_LABELS,
 } from "@/lib/types";
 import { getBiggestWeeklyChanges, fmtNum } from "@/lib/reserves";
+import Segmented from "@/components/Segmented";
 
 type Granularity = "daily" | "weekly";
 
@@ -87,21 +88,11 @@ export default function BiggestChanges({ series, granularity }: Props) {
           <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
         </div>
 
-        <div className="flex bg-[#0a0f16] border border-[#1a2433] rounded-lg p-1 gap-1">
-          {METRICS.map((m) => (
-            <button
-              key={m}
-              onClick={() => setActiveMetric(m)}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                activeMetric === m
-                  ? "text-[#0d1520] shadow"
-                  : "text-slate-500 hover:text-slate-300"
-              }`}
-                          >
-              {METRIC_LABELS[m]}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          options={METRICS.map((m) => ({ value: m, label: METRIC_LABELS[m] }))}
+          value={activeMetric}
+          onChange={setActiveMetric}
+        />
       </div>
 
       <ResponsiveContainer width="100%" height={260}>
